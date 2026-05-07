@@ -69,15 +69,18 @@ def main(dataset_name):
 
     # paper / rPPG-Toolbox 표준: source train 80%, valid 20%. PE pretraining 도
     # 80% train 사용 (target test 정보 leakage 방지).
+    # PhysFormer 공식 setup (standardized + RandomHorizontalFlip)
     loader = get_dataloader(dataset_name, DATASET_PATHS[dataset_name], BATCH_SIZE,
                             clip_len=160, face_crop=True, shuffle=True,
-                            data_type='diff_normalized',
+                            data_type='standardized', random_hflip=True,
                             dynamic_detection_freq=DETECTION_FREQ,
                             split_range=(0.0, 0.8))
     log(f"  train clips (80%): {len(loader.dataset)}")
 
-    model = PhysFormer(dim=96, ff_dim=144, num_heads=4, num_layers=12,
-                       frame=160, image_size=128, dropout=0.1, theta=0.7).to(device)
+    # PhysFormer 공식 코드 그대로 (image_size=(160,128,128), patches=(4,4,4))
+    model = PhysFormer(patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4,
+                       num_layers=12, dropout_rate=0.1, theta=0.7,
+                       image_size=(160, 128, 128)).to(device)
     log(f"  model params: {sum(p.numel() for p in model.parameters())}")
 
     optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
@@ -96,9 +99,11 @@ def main(dataset_name):
         for i, (inputs, labels) in enumerate(loader):
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs = model(inputs)
-            loss_p = pearson_criterion(outputs, labels)
-            loss_ce, loss_ld = freq_criterion(outputs, labels)
+            rPPG, _, _, _ = model(inputs, gra_sharp=2.0)
+            # PhysFormer 공식: loss 직전 batch-level 정규화
+            rPPG = (rPPG - torch.mean(rPPG)) / (torch.std(rPPG) + 1e-8)
+            loss_p = pearson_criterion(rPPG, labels)
+            loss_ce, loss_ld = freq_criterion(rPPG, labels)
             loss = ALPHA * loss_p + beta * (loss_ce + loss_ld)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)

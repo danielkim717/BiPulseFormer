@@ -1,35 +1,35 @@
 """
-PhysFormer (Yu et al., CVPR 2022) ANN baseline 구현.
+PhysFormer (Yu et al., CVPR 2022) — 공식 GitHub 코드의 직접 포팅.
 
-핵심: Spiking-PhysFormer 의 PE block (Stem0+Stem1+Stem2+patch_embedding)
-초기 가중치를 사전학습으로 얻기 위해 사용.
-
-아키텍처:
-  - Stem0/1/2 (3D Conv + BN + ReLU + MaxPool)
-  - patch_embedding (4,4,4) Conv3d
-  - 12 transformer layer (3 stage × 4)
-    Block: LayerNorm → MHSA_TDC(gra_sharp) → +res → LayerNorm → PositionWiseFFN_ST → +res
-    MHSA_TDC: Q=CDC_T, K=CDC_T, V=Conv1x1, scaled-dot-product attention with gra_sharp
-    PositionWiseFFN_ST: Conv1x1 → BN → ELU → depthwise 3×3×3 STConv → BN → ELU → Conv1x1 → BN
-  - Predictor head (Upsample×2 + ConvBN + ELU + GAP + Conv1d)
-
-Reference:
-  https://github.com/ZitongYu/PhysFormer/blob/main/model/Physformer.py
+원본:
   https://github.com/ZitongYu/PhysFormer/blob/main/model/transformer_layer.py
+  https://github.com/ZitongYu/PhysFormer/blob/main/model/physformer.py
+
+용도:
+  1) PE block (Stem0+Stem1+Stem2 + patch_embedding) 사전학습용
+  2) BiPhysFormer (BiFormer 적용) 와의 fair baseline 비교용
+
+원본 대비 차이는 import 와 type-hint 정리뿐. 모델 구조/init/forward 는 동일.
 """
 import math
+from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
+# =============================================================================
+# CDC_T — 공식 코드 그대로
+# =============================================================================
 class CDC_T(nn.Module):
+    """Temporal Center-difference based 3D Convolution."""
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1,
-                 padding=1, dilation=1, groups=1, bias=False, theta=0.7):
+                 padding=1, dilation=1, groups=1, bias=False, theta=0.6):
         super().__init__()
-        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride,
-                              padding=padding, dilation=dilation, groups=groups, bias=bias)
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size,
+                              stride=stride, padding=padding, dilation=dilation,
+                              groups=groups, bias=bias)
         self.theta = theta
 
     def forward(self, x):
@@ -47,103 +47,168 @@ class CDC_T(nn.Module):
         return out_normal
 
 
-def _split_last(x, shape):
+def split_last(x, shape):
     shape = list(shape)
+    assert shape.count(-1) <= 1
     if -1 in shape:
         shape[shape.index(-1)] = int(x.size(-1) / -np.prod(shape))
     return x.view(*x.size()[:-1], *shape)
 
 
-def _merge_last(x, n_dims):
+def merge_last(x, n_dims):
     s = x.size()
+    assert n_dims > 1 and n_dims < len(s)
     return x.view(*s[:-n_dims], -1)
 
 
-class MHSA_TDC(nn.Module):
-    """Multi-head Self-Attention with TDC-Q, TDC-K, Conv1x1-V."""
+# =============================================================================
+# MultiHeadedSelfAttention_TDC_gra_sharp — 공식 코드 그대로
+# =============================================================================
+class MultiHeadedSelfAttention_TDC_gra_sharp(nn.Module):
+    """Multi-Headed Dot Product Attention with depth-wise Conv3d (PhysFormer)."""
     def __init__(self, dim, num_heads, dropout, theta):
         super().__init__()
         self.proj_q = nn.Sequential(
-            CDC_T(dim, dim, kernel_size=3, stride=1, padding=1, bias=False, theta=theta),
+            CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
             nn.BatchNorm3d(dim),
         )
         self.proj_k = nn.Sequential(
-            CDC_T(dim, dim, kernel_size=3, stride=1, padding=1, bias=False, theta=theta),
+            CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
             nn.BatchNorm3d(dim),
         )
-        self.proj_v = nn.Conv3d(dim, dim, kernel_size=1, stride=1, padding=0, bias=False)
+        self.proj_v = nn.Sequential(
+            nn.Conv3d(dim, dim, 1, stride=1, padding=0, groups=1, bias=False),
+        )
         self.drop = nn.Dropout(dropout)
         self.n_heads = num_heads
+        self.scores = None
 
-    def forward(self, x, gra_sharp, t, h, w):
-        # x: (B, P, C)  →  reshape to (B, C, t, h, w)
+    def forward(self, x, gra_sharp):
         B, P, C = x.shape
-        x_3d = x.transpose(1, 2).reshape(B, C, t, h, w)
-        q = self.proj_q(x_3d).flatten(2).transpose(1, 2)   # (B, P, C)
-        k = self.proj_k(x_3d).flatten(2).transpose(1, 2)
-        v = self.proj_v(x_3d).flatten(2).transpose(1, 2)
-        q, k, v = (_split_last(t_, (self.n_heads, -1)).transpose(1, 2) for t_ in (q, k, v))
+        x = x.transpose(1, 2).view(B, C, P // 16, 4, 4)
+        q, k, v = self.proj_q(x), self.proj_k(x), self.proj_v(x)
+        q = q.flatten(2).transpose(1, 2)
+        k = k.flatten(2).transpose(1, 2)
+        v = v.flatten(2).transpose(1, 2)
+        q, k, v = (split_last(t_, (self.n_heads, -1)).transpose(1, 2) for t_ in [q, k, v])
         scores = q @ k.transpose(-2, -1) / gra_sharp
         scores = self.drop(F.softmax(scores, dim=-1))
-        h_out = (scores @ v).transpose(1, 2).contiguous()
-        return _merge_last(h_out, 2)   # (B, P, C)
+        h = (scores @ v).transpose(1, 2).contiguous()
+        h = merge_last(h, 2)
+        self.scores = scores
+        return h, scores
 
 
+# =============================================================================
+# PositionWiseFeedForward_ST — 공식 코드 그대로
+# =============================================================================
 class PositionWiseFeedForward_ST(nn.Module):
-    """FFN with depth-wise 3x3x3 STConv between two 1x1 projections."""
     def __init__(self, dim, ff_dim):
         super().__init__()
         self.fc1 = nn.Sequential(
-            nn.Conv3d(dim, ff_dim, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv3d(dim, ff_dim, 1, stride=1, padding=0, bias=False),
             nn.BatchNorm3d(ff_dim),
             nn.ELU(),
         )
         self.STConv = nn.Sequential(
-            nn.Conv3d(ff_dim, ff_dim, kernel_size=3, stride=1, padding=1, groups=ff_dim, bias=False),
+            nn.Conv3d(ff_dim, ff_dim, 3, stride=1, padding=1, groups=ff_dim, bias=False),
             nn.BatchNorm3d(ff_dim),
             nn.ELU(),
         )
         self.fc2 = nn.Sequential(
-            nn.Conv3d(ff_dim, dim, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv3d(ff_dim, dim, 1, stride=1, padding=0, bias=False),
             nn.BatchNorm3d(dim),
         )
 
-    def forward(self, x, t, h, w):
+    def forward(self, x):
         B, P, C = x.shape
-        x_3d = x.transpose(1, 2).reshape(B, C, t, h, w)
-        x_3d = self.fc1(x_3d)
-        x_3d = self.STConv(x_3d)
-        x_3d = self.fc2(x_3d)
-        return x_3d.flatten(2).transpose(1, 2)
+        x = x.transpose(1, 2).view(B, C, P // 16, 4, 4)
+        x = self.fc1(x)
+        x = self.STConv(x)
+        x = self.fc2(x)
+        x = x.flatten(2).transpose(1, 2)
+        return x
 
 
-class TransformerBlock(nn.Module):
+# =============================================================================
+# Block_ST_TDC_gra_sharp — 공식 코드 그대로
+# =============================================================================
+class Block_ST_TDC_gra_sharp(nn.Module):
     def __init__(self, dim, num_heads, ff_dim, dropout, theta):
         super().__init__()
-        self.attn = MHSA_TDC(dim, num_heads, dropout, theta)
+        self.attn = MultiHeadedSelfAttention_TDC_gra_sharp(dim, num_heads, dropout, theta)
         self.proj = nn.Linear(dim, dim)
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
         self.pwff = PositionWiseFeedForward_ST(dim, ff_dim)
         self.norm2 = nn.LayerNorm(dim, eps=1e-6)
         self.drop = nn.Dropout(dropout)
 
-    def forward(self, x, gra_sharp, t, h, w):
-        attn_out = self.attn(self.norm1(x), gra_sharp, t, h, w)
-        x = x + self.drop(self.proj(attn_out))
-        ff_out = self.pwff(self.norm2(x), t, h, w)
-        x = x + self.drop(ff_out)
-        return x
+    def forward(self, x, gra_sharp):
+        Atten, Score = self.attn(self.norm1(x), gra_sharp)
+        h = self.drop(self.proj(Atten))
+        x = x + h
+        h = self.drop(self.pwff(self.norm2(x)))
+        x = x + h
+        return x, Score
 
 
-class PhysFormer(nn.Module):
-    """PhysFormer ANN baseline (CVPR 2022)."""
-    def __init__(self, dim=96, ff_dim=144, num_heads=4, num_layers=12,
-                 frame=160, image_size=128, dropout=0.1, theta=0.7,
-                 patches=(4, 4, 4)):
+class Transformer_ST_TDC_gra_sharp(nn.Module):
+    def __init__(self, num_layers, dim, num_heads, ff_dim, dropout, theta):
         super().__init__()
-        self.dim = dim
+        self.blocks = nn.ModuleList([
+            Block_ST_TDC_gra_sharp(dim, num_heads, ff_dim, dropout, theta)
+            for _ in range(num_layers)
+        ])
+
+    def forward(self, x, gra_sharp):
+        for block in self.blocks:
+            x, Score = block(x, gra_sharp)
+        return x, Score
+
+
+# =============================================================================
+# ViT_ST_ST_Compact3_TDC_gra_sharp — 공식 코드 그대로
+# =============================================================================
+def _as_tuple(x):
+    return x if isinstance(x, tuple) else (x, x, x)
+
+
+class ViT_ST_ST_Compact3_TDC_gra_sharp(nn.Module):
+    """PhysFormer 공식 모델 (CVPR 2022)."""
+
+    def __init__(
+        self,
+        patches=(4, 4, 4),
+        dim: int = 96,
+        ff_dim: int = 144,
+        num_heads: int = 4,
+        num_layers: int = 12,
+        dropout_rate: float = 0.1,
+        in_channels: int = 3,
+        frame: int = 160,
+        theta: float = 0.7,
+        image_size=(160, 128, 128),
+    ):
+        super().__init__()
+        self.image_size = image_size
         self.frame = frame
-        self.gra_sharp = 2.0
+        self.dim = dim
+
+        ft, fh, fw = patches if isinstance(patches, tuple) else (patches, patches, patches)
+        self.patch_embedding = nn.Conv3d(dim, dim, kernel_size=(ft, fh, fw), stride=(ft, fh, fw))
+
+        self.transformer1 = Transformer_ST_TDC_gra_sharp(
+            num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
+            ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
+        )
+        self.transformer2 = Transformer_ST_TDC_gra_sharp(
+            num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
+            ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
+        )
+        self.transformer3 = Transformer_ST_TDC_gra_sharp(
+            num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
+            ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
+        )
 
         self.Stem0 = nn.Sequential(
             nn.Conv3d(3, dim // 4, [1, 5, 5], stride=1, padding=[0, 2, 2]),
@@ -163,23 +228,6 @@ class PhysFormer(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool3d((1, 2, 2), stride=(1, 2, 2)),
         )
-        ft, fh, fw = patches
-        self.patch_embedding = nn.Conv3d(dim, dim, kernel_size=(ft, fh, fw), stride=(ft, fh, fw))
-
-        # 12 transformer layers in 3 stages of 4
-        layers_per_stage = num_layers // 3
-        self.transformer1 = nn.ModuleList([
-            TransformerBlock(dim, num_heads, ff_dim, dropout, theta)
-            for _ in range(layers_per_stage)
-        ])
-        self.transformer2 = nn.ModuleList([
-            TransformerBlock(dim, num_heads, ff_dim, dropout, theta)
-            for _ in range(layers_per_stage)
-        ])
-        self.transformer3 = nn.ModuleList([
-            TransformerBlock(dim, num_heads, ff_dim, dropout, theta)
-            for _ in range(layers_per_stage)
-        ])
 
         self.upsample = nn.Sequential(
             nn.Upsample(scale_factor=(2, 1, 1)),
@@ -195,36 +243,46 @@ class PhysFormer(nn.Module):
         )
         self.ConvBlockLast = nn.Conv1d(dim // 2, 1, 1, stride=1, padding=0)
 
-    def forward(self, x):
-        B = x.shape[0]
+        self.init_weights()
+
+    @torch.no_grad()
+    def init_weights(self):
+        def _init(m):
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.normal_(m.bias, std=1e-6)
+        self.apply(_init)
+
+    def forward(self, x, gra_sharp=2.0):
+        b, c, t, fh, fw = x.shape
         x = self.Stem0(x)
         x = self.Stem1(x)
         x = self.Stem2(x)
-        x = self.patch_embedding(x)            # (B, dim, t, h, w)
-        _, C, t, h, w = x.shape
-        x = x.flatten(2).transpose(1, 2)       # (B, P, C)
+        x = self.patch_embedding(x)
+        x = x.flatten(2).transpose(1, 2)
 
-        for blk in self.transformer1:
-            x = blk(x, self.gra_sharp, t, h, w)
-        for blk in self.transformer2:
-            x = blk(x, self.gra_sharp, t, h, w)
-        for blk in self.transformer3:
-            x = blk(x, self.gra_sharp, t, h, w)
+        T1, S1 = self.transformer1(x, gra_sharp)
+        T2, S2 = self.transformer2(T1, gra_sharp)
+        T3, S3 = self.transformer3(T2, gra_sharp)
 
-        features_last = x.transpose(1, 2).reshape(B, C, t, h, w)
+        features_last = T3.transpose(1, 2).view(b, self.dim, t // 4, 4, 4)
         features_last = self.upsample(features_last)
         features_last = self.upsample2(features_last)
-        features_last = torch.mean(features_last, dim=3)
-        features_last = torch.mean(features_last, dim=3)
-        rppg = self.ConvBlockLast(features_last).squeeze(1)
-        return rppg
+        features_last = torch.mean(features_last, 3)
+        features_last = torch.mean(features_last, 3)
+        rPPG = self.ConvBlockLast(features_last).squeeze(1)
+        return rPPG, S1, S2, S3
 
     def export_pe_state_dict(self):
-        """Return state_dict of Stem0+Stem1+Stem2+patch_embedding (PE block).
-        Used to transfer pretrained weights to SpikingPhysformer."""
+        """Stem0/1/2 + patch_embedding state_dict (PE pretraining 용)."""
         sd = {}
         for prefix in ['Stem0', 'Stem1', 'Stem2', 'patch_embedding']:
             module = getattr(self, prefix)
             for k, v in module.state_dict().items():
                 sd[f'{prefix}.{k}'] = v.clone().detach()
         return sd
+
+
+# Backward-compat alias
+PhysFormer = ViT_ST_ST_Compact3_TDC_gra_sharp

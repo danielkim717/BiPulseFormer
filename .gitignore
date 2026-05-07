@@ -22,5 +22,9 @@ paper_abs.html
 paper_v4.html
 paper_text.txt
 paper_chunk_*.txt
+# Temporary reference files (PhysFormer / rPPG-Toolbox source files for inspection)
+tmp_*.py
+results/*/run.log
+results/*/run.log.err
 # Scheduled task lock
 .claude/scheduled_tasks.lock

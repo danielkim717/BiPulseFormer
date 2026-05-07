@@ -1,36 +1,45 @@
 """
-BiPhysFormer — PhysFormer (ANN) + BiLevel Routing Attention (Zhu et al., CVPR 2023).
+BiPhysFormer — PhysFormer (CVPR 2022, Yu et al.) 의 공식 구현을
+거의 그대로 포팅하되, MultiHeadedSelfAttention_TDC_gra_sharp 만
+BiLevelRoutingAttention_TDC_gra_sharp 로 교체한 ablation 모델.
 
-목적:
-  Spiking 효과를 제외한 상태에서 BiFormer 의 BiLevel Routing Attention 을
-  PhysFormer 에 단독 적용했을 때의 기여도를 검증하기 위한 ablation 모델.
+원본:
+  https://github.com/ZitongYu/PhysFormer/blob/main/model/transformer_layer.py
+  https://github.com/ZitongYu/PhysFormer/blob/main/model/physformer.py
 
-차이점 (vs. PhysFormer):
-  - MHSA_TDC  →  BiLevelRoutingAttention_TDC  (region top-k routing + sparse attn)
-  - 그 외 (Stem0/1/2, patch_embedding, TDC-Q/K, FFN_ST, predictor head, gra_sharp)
-    는 PhysFormer 원본과 동일.
+차이점 (PhysFormer 원본 대비):
+  - Block_ST_TDC_gra_sharp.attn  →  BiLevelRoutingAttention_TDC_gra_sharp
+  - 그 외 (CDC_T, FFN_ST, Block 의 norm/proj/pwff, Stem0/1/2,
+    patch_embedding, transformer1/2/3, upsample, ConvBlockLast,
+    init_weights, forward signature) 모두 PhysFormer 원본 그대로.
 
-Reference:
-  https://github.com/rayleizhu/BiFormer/blob/public_release/ops/bra_legacy.py
-  Zhu et al., "BiFormer: Vision Transformer with Bi-Level Routing Attention",
-  CVPR 2023.
+BiLevel Routing Attention (Zhu et al., CVPR 2023) 적용 방식:
+  Q,K,V 추출은 동일 (TDC-Q, TDC-K, Conv1×1-V), 단 attention 단계에서
+    1) Q,K 를 window 단위로 평균 → q_region, k_region
+    2) q_region @ k_region.T 로 region similarity → 각 query window 가
+       상위 k 개의 key window 만 참조 (top-k routing)
+    3) 그 k×win_size 토큰만 key/value 로 사용해 multi-head softmax 수행
+  PhysFormer 의 gra_sharp (=2.0) scale 도 그대로 유지하여 fair comparison.
 """
 import math
+from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-# -----------------------------------------------------------------------------
-# Temporal Center-Difference Conv (PhysFormer 동일)
-# -----------------------------------------------------------------------------
+# =============================================================================
+# CDC_T — PhysFormer 원본 그대로
+# =============================================================================
 class CDC_T(nn.Module):
+    """Temporal Center-difference based 3D Convolution (CDC_T)."""
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1,
-                 padding=1, dilation=1, groups=1, bias=False, theta=0.7):
+                 padding=1, dilation=1, groups=1, bias=False, theta=0.6):
         super().__init__()
-        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride,
-                              padding=padding, dilation=dilation, groups=groups, bias=bias)
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size,
+                              stride=stride, padding=padding, dilation=dilation,
+                              groups=groups, bias=bias)
         self.theta = theta
 
     def forward(self, x):
@@ -48,186 +57,255 @@ class CDC_T(nn.Module):
         return out_normal
 
 
-# -----------------------------------------------------------------------------
-# BiLevel Routing Attention with TDC-Q/K (BiFormer paper, Zhu et al., CVPR 2023)
-#
-# Algorithm:
-#   1) Q = TDC(x), K = TDC(x), V = Conv1x1(x)             # PhysFormer-style
-#   2) Window partition: feature map → (wt × wh × ww) windows
-#   3) Region routing:
-#        q_r = mean_token(Q in each window)   # [B, S, C]
-#        k_r = mean_token(K in each window)   # [B, S, C]
-#        A_r = q_r @ k_r.T   →  top-k key-windows per query-window
-#   4) Token-level sparse attention:
-#        각 query-token 은 top-k 개 routed window 안의 token (k * win_size) 만
-#        key/value 로 사용 (full attention 대비 sparsity)
-#   5) Multi-head softmax (gra_sharp 적용, PhysFormer recipe)
-# -----------------------------------------------------------------------------
-class BiLevelRoutingAttention_TDC(nn.Module):
+# =============================================================================
+# split_last / merge_last — PhysFormer 원본 그대로
+# =============================================================================
+def split_last(x, shape):
+    shape = list(shape)
+    assert shape.count(-1) <= 1
+    if -1 in shape:
+        shape[shape.index(-1)] = int(x.size(-1) / -np.prod(shape))
+    return x.view(*x.size()[:-1], *shape)
+
+
+def merge_last(x, n_dims):
+    s = x.size()
+    assert n_dims > 1 and n_dims < len(s)
+    return x.view(*s[:-n_dims], -1)
+
+
+# =============================================================================
+# BiLevelRoutingAttention_TDC_gra_sharp
+#   PhysFormer MHSA_TDC_gra_sharp 의 drop-in replacement.
+#   - 입력/출력 shape, return signature, forward(x, gra_sharp) 시그니처
+#     모두 원본 MHSA 와 동일.
+#   - 어텐션 내부만 BiLevel Routing 으로 교체.
+# =============================================================================
+class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
+    """BiFormer-style BRA, drop-in for PhysFormer MHSA_TDC_gra_sharp."""
     def __init__(self, dim, num_heads, dropout, theta,
                  n_win=(2, 2, 2), topk=4):
         super().__init__()
-        assert dim % num_heads == 0
-        self.dim = dim
-        self.n_heads = num_heads
-        self.head_dim = dim // num_heads
-        self.n_win = n_win
-        self.topk = topk
-
         self.proj_q = nn.Sequential(
-            CDC_T(dim, dim, kernel_size=3, stride=1, padding=1, bias=False, theta=theta),
+            CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
             nn.BatchNorm3d(dim),
         )
         self.proj_k = nn.Sequential(
-            CDC_T(dim, dim, kernel_size=3, stride=1, padding=1, bias=False, theta=theta),
+            CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
             nn.BatchNorm3d(dim),
         )
-        self.proj_v = nn.Conv3d(dim, dim, kernel_size=1, stride=1, padding=0, bias=False)
+        self.proj_v = nn.Sequential(
+            nn.Conv3d(dim, dim, 1, stride=1, padding=0, groups=1, bias=False),
+        )
         self.drop = nn.Dropout(dropout)
+        self.n_heads = num_heads
+        self.dim = dim
+        self.n_win = n_win
+        self.topk = topk
+        self.scores = None  # for visualization (PhysFormer 원본 호환)
 
-    def _window_partition(self, x, t, h, w):
-        """[B, C, t, h, w] → [B, S, win, C], S = wt*wh*ww, win = lt*lh*lw."""
-        B, C = x.shape[:2]
+    def _window_partition(self, feat_3d, t, h, w):
+        """feat_3d: (B, C, t, h, w) → (B, S, win, C),  S=Πn_win, win=Πlen."""
+        B, C = feat_3d.shape[:2]
         wt, wh, ww = self.n_win
         lt, lh, lw = t // wt, h // wh, w // ww
-        # reshape into (B, C, wt, lt, wh, lh, ww, lw)
-        x = x.view(B, C, wt, lt, wh, lh, ww, lw)
-        # permute → (B, wt, wh, ww, lt, lh, lw, C)
-        x = x.permute(0, 2, 4, 6, 3, 5, 7, 1).contiguous()
+        feat = feat_3d.view(B, C, wt, lt, wh, lh, ww, lw)
+        feat = feat.permute(0, 2, 4, 6, 3, 5, 7, 1).contiguous()  # (B, wt, wh, ww, lt, lh, lw, C)
         S = wt * wh * ww
         win = lt * lh * lw
-        return x.view(B, S, win, C), (lt, lh, lw)
+        return feat.view(B, S, win, C), (lt, lh, lw)
 
-    def _window_reverse(self, x, t, h, w, lt, lh, lw):
-        """[B, S, win, C] → [B, C, t, h, w]."""
-        B = x.shape[0]
-        C = x.shape[-1]
+    def _window_reverse(self, x_w, t, h, w, lt, lh, lw):
+        """(B, S, win, C) → (B, t*h*w, C)."""
+        B = x_w.shape[0]
+        C = x_w.shape[-1]
         wt, wh, ww = self.n_win
-        x = x.view(B, wt, wh, ww, lt, lh, lw, C)
-        x = x.permute(0, 7, 1, 4, 2, 5, 3, 6).contiguous()  # (B, C, wt, lt, wh, lh, ww, lw)
-        return x.view(B, C, t, h, w)
+        x = x_w.view(B, wt, wh, ww, lt, lh, lw, C)
+        x = x.permute(0, 1, 4, 2, 5, 3, 6, 7).contiguous()  # (B, wt, lt, wh, lh, ww, lw, C)
+        x = x.view(B, t * h * w, C)
+        return x
 
-    def forward(self, x, gra_sharp, t, h, w):
-        # x: (B, P, C), P = t*h*w
+    def forward(self, x, gra_sharp):
+        """x: (B, P, C), P = t*h*w. PhysFormer 호출 패턴 그대로 사용.
+        Return: (h, scores) — scores 는 region routing 결과 (B, S, S) 로 반환."""
         B, P, C = x.shape
-        x_3d = x.transpose(1, 2).reshape(B, C, t, h, w)
+        # PhysFormer 원본은 P = 16*t (h=w=4) 로 reshape — 우리도 동일.
+        x_3d = x.transpose(1, 2).view(B, C, P // 16, 4, 4)
+        t, h, w = P // 16, 4, 4
 
-        # Step 1: Q, K, V via PhysFormer projections
-        q_3d = self.proj_q(x_3d)            # (B, C, t, h, w)
+        q_3d = self.proj_q(x_3d)
         k_3d = self.proj_k(x_3d)
         v_3d = self.proj_v(x_3d)
 
-        # Step 2: window partition
-        q_w, (lt, lh, lw) = self._window_partition(q_3d, t, h, w)   # [B, S, win, C]
+        # Window partition
+        q_w, (lt, lh, lw) = self._window_partition(q_3d, t, h, w)   # (B, S, win, C)
         k_w, _ = self._window_partition(k_3d, t, h, w)
         v_w, _ = self._window_partition(v_3d, t, h, w)
         S = q_w.shape[1]
         win = q_w.shape[2]
 
-        # Step 3: region routing
-        q_r = q_w.mean(dim=2)               # [B, S, C]
-        k_r = k_w.mean(dim=2)               # [B, S, C]
-        a_r = q_r @ k_r.transpose(-2, -1) / math.sqrt(C)   # [B, S, S]
+        # Region routing
+        q_r = q_w.mean(dim=2)                                       # (B, S, C)
+        k_r = k_w.mean(dim=2)
+        a_r = q_r @ k_r.transpose(-2, -1) / math.sqrt(C)            # (B, S, S)
         topk = min(self.topk, S)
-        _, topk_idx = torch.topk(a_r, k=topk, dim=-1)       # [B, S, topk]
+        _, topk_idx = torch.topk(a_r, k=topk, dim=-1)               # (B, S, topk)
 
-        # Step 4: gather K, V from top-k routed windows for each query window
-        # gather index: [B, S, topk] → expand to [B, S, topk, win, C]
+        # Gather K, V from top-k routed windows for each query window
         idx = topk_idx.view(B, S, topk, 1, 1).expand(B, S, topk, win, C)
-        # k_w / v_w: [B, S, win, C] → expand source dim along query:
-        #   source = [B, 1, S, win, C]   gather dim=2 → [B, S, topk, win, C]
         k_src = k_w.unsqueeze(1).expand(B, S, S, win, C)
         v_src = v_w.unsqueeze(1).expand(B, S, S, win, C)
-        k_g = torch.gather(k_src, 2, idx)   # [B, S, topk, win, C]
-        v_g = torch.gather(v_src, 2, idx)
-        # flatten topk*win into a single key/value dim
-        k_g = k_g.view(B, S, topk * win, C)
-        v_g = v_g.view(B, S, topk * win, C)
+        k_g = torch.gather(k_src, 2, idx).view(B, S, topk * win, C)  # (B, S, k*win, C)
+        v_g = torch.gather(v_src, 2, idx).view(B, S, topk * win, C)
 
-        # Step 5: multi-head sparse attention within each query window
+        # Multi-head sparse attention within each query window
         H = self.n_heads
-        d = self.head_dim
-        # reshape per-head: [B, S, win/(topk*win), H, d]
-        q_h = q_w.view(B, S, win, H, d).permute(0, 1, 3, 2, 4)            # [B, S, H, win, d]
-        k_h = k_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)     # [B, S, H, topk*win, d]
+        d = C // H
+        q_h = q_w.view(B, S, win, H, d).permute(0, 1, 3, 2, 4)             # (B, S, H, win, d)
+        k_h = k_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)      # (B, S, H, k*win, d)
         v_h = v_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)
-
-        # PhysFormer recipe: scores = q@k^T / gra_sharp  (note: not /sqrt(d))
-        scores = (q_h @ k_h.transpose(-2, -1)) / gra_sharp                # [B, S, H, win, topk*win]
+        # PhysFormer recipe: scores = q @ k.T / gra_sharp  (NOT /sqrt(d))
+        scores = (q_h @ k_h.transpose(-2, -1)) / gra_sharp                  # (B, S, H, win, k*win)
         scores = self.drop(F.softmax(scores, dim=-1))
-        out = scores @ v_h                                                # [B, S, H, win, d]
+        out = scores @ v_h                                                  # (B, S, H, win, d)
 
-        # merge heads, then window-reverse to (B, C, t, h, w)
-        out = out.permute(0, 1, 3, 2, 4).contiguous().view(B, S, win, C)  # [B, S, win, C]
-        out_3d = self._window_reverse(out, t, h, w, lt, lh, lw)           # [B, C, t, h, w]
-        out = out_3d.flatten(2).transpose(1, 2)                           # [B, P, C]
-        return out
+        # Merge heads + window-reverse
+        out = out.permute(0, 1, 3, 2, 4).contiguous().view(B, S, win, C)    # (B, S, win, C)
+        h_out = self._window_reverse(out, t, h, w, lt, lh, lw)              # (B, P, C)
+        # Score (region routing) for visualization compatibility
+        self.scores = a_r
+        return h_out, a_r
 
 
-# -----------------------------------------------------------------------------
-# Position-wise FeedForward with depthwise STConv (PhysFormer 동일)
-# -----------------------------------------------------------------------------
+# =============================================================================
+# PositionWiseFeedForward_ST — PhysFormer 원본 그대로
+# =============================================================================
 class PositionWiseFeedForward_ST(nn.Module):
+    """1×1 Conv → BN → ELU → depthwise 3³ STConv → BN → ELU → 1×1 Conv → BN."""
     def __init__(self, dim, ff_dim):
         super().__init__()
         self.fc1 = nn.Sequential(
-            nn.Conv3d(dim, ff_dim, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv3d(dim, ff_dim, 1, stride=1, padding=0, bias=False),
             nn.BatchNorm3d(ff_dim),
             nn.ELU(),
         )
         self.STConv = nn.Sequential(
-            nn.Conv3d(ff_dim, ff_dim, kernel_size=3, stride=1, padding=1, groups=ff_dim, bias=False),
+            nn.Conv3d(ff_dim, ff_dim, 3, stride=1, padding=1, groups=ff_dim, bias=False),
             nn.BatchNorm3d(ff_dim),
             nn.ELU(),
         )
         self.fc2 = nn.Sequential(
-            nn.Conv3d(ff_dim, dim, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv3d(ff_dim, dim, 1, stride=1, padding=0, bias=False),
             nn.BatchNorm3d(dim),
         )
 
-    def forward(self, x, t, h, w):
+    def forward(self, x):
         B, P, C = x.shape
-        x_3d = x.transpose(1, 2).reshape(B, C, t, h, w)
-        x_3d = self.fc1(x_3d)
-        x_3d = self.STConv(x_3d)
-        x_3d = self.fc2(x_3d)
-        return x_3d.flatten(2).transpose(1, 2)
+        x = x.transpose(1, 2).view(B, C, P // 16, 4, 4)
+        x = self.fc1(x)
+        x = self.STConv(x)
+        x = self.fc2(x)
+        x = x.flatten(2).transpose(1, 2)
+        return x
 
 
-# -----------------------------------------------------------------------------
-# BiFormer-style transformer block (BRA + FFN_ST)
-# -----------------------------------------------------------------------------
-class BiTransformerBlock(nn.Module):
-    def __init__(self, dim, num_heads, ff_dim, dropout, theta, n_win=(2, 2, 2), topk=4):
+# =============================================================================
+# Block_ST_TDC_gra_sharp_Bi — PhysFormer 원본 Block 에서 attn 만 BRA 로 교체
+# =============================================================================
+class Block_ST_TDC_gra_sharp_Bi(nn.Module):
+    """Transformer Block (BiLevel Routing Attention 적용)."""
+    def __init__(self, dim, num_heads, ff_dim, dropout, theta,
+                 n_win=(2, 2, 2), topk=4):
         super().__init__()
-        self.attn = BiLevelRoutingAttention_TDC(dim, num_heads, dropout, theta,
-                                                n_win=n_win, topk=topk)
+        self.attn = BiLevelRoutingAttention_TDC_gra_sharp(
+            dim, num_heads, dropout, theta, n_win=n_win, topk=topk
+        )
         self.proj = nn.Linear(dim, dim)
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
         self.pwff = PositionWiseFeedForward_ST(dim, ff_dim)
         self.norm2 = nn.LayerNorm(dim, eps=1e-6)
         self.drop = nn.Dropout(dropout)
 
-    def forward(self, x, gra_sharp, t, h, w):
-        attn_out = self.attn(self.norm1(x), gra_sharp, t, h, w)
-        x = x + self.drop(self.proj(attn_out))
-        ff_out = self.pwff(self.norm2(x), t, h, w)
-        x = x + self.drop(ff_out)
-        return x
+    def forward(self, x, gra_sharp):
+        Atten, Score = self.attn(self.norm1(x), gra_sharp)
+        h = self.drop(self.proj(Atten))
+        x = x + h
+        h = self.drop(self.pwff(self.norm2(x)))
+        x = x + h
+        return x, Score
 
 
-# -----------------------------------------------------------------------------
-# BiPhysFormer (ANN, BiFormer 적용)
-# -----------------------------------------------------------------------------
-class BiPhysFormer(nn.Module):
-    """PhysFormer + BiLevel Routing Attention (Spiking 미적용)."""
-    def __init__(self, dim=96, ff_dim=144, num_heads=4, num_layers=12,
-                 frame=160, image_size=128, dropout=0.1, theta=0.7,
-                 patches=(4, 4, 4), n_win=(2, 2, 2), topk=4):
+# =============================================================================
+# Transformer_ST_TDC_gra_sharp_Bi — PhysFormer 원본 Transformer 에서
+#   Block 만 Bi 로 교체
+# =============================================================================
+class Transformer_ST_TDC_gra_sharp_Bi(nn.Module):
+    def __init__(self, num_layers, dim, num_heads, ff_dim, dropout, theta,
+                 n_win=(2, 2, 2), topk=4):
         super().__init__()
-        self.dim = dim
+        self.blocks = nn.ModuleList([
+            Block_ST_TDC_gra_sharp_Bi(dim, num_heads, ff_dim, dropout, theta,
+                                      n_win=n_win, topk=topk)
+            for _ in range(num_layers)
+        ])
+
+    def forward(self, x, gra_sharp):
+        for block in self.blocks:
+            x, Score = block(x, gra_sharp)
+        return x, Score
+
+
+# =============================================================================
+# ViT_BiPhysFormer — PhysFormer 원본 ViT_ST_ST_Compact3_TDC_gra_sharp 와
+#   Stem/PE/upsample/init_weights/forward 전부 동일.
+#   transformer1/2/3 만 Bi 버전 사용.
+# =============================================================================
+def _as_tuple(x):
+    return x if isinstance(x, tuple) else (x, x, x)
+
+
+class ViT_BiPhysFormer(nn.Module):
+    """PhysFormer + BiLevel Routing Attention. 학습/forward 인터페이스는
+    원본 PhysFormer 와 100% 동일 (forward(x, gra_sharp) → rPPG, S1, S2, S3)."""
+
+    def __init__(
+        self,
+        patches=(4, 4, 4),
+        dim: int = 96,
+        ff_dim: int = 144,
+        num_heads: int = 4,
+        num_layers: int = 12,
+        dropout_rate: float = 0.1,
+        in_channels: int = 3,
+        frame: int = 160,
+        theta: float = 0.7,
+        image_size=(160, 128, 128),
+        n_win=(2, 2, 2),
+        topk: int = 4,
+    ):
+        super().__init__()
+        self.image_size = image_size
         self.frame = frame
-        self.gra_sharp = 2.0
+        self.dim = dim
+
+        ft, fh, fw = patches if isinstance(patches, tuple) else (patches, patches, patches)
+        self.patch_embedding = nn.Conv3d(dim, dim, kernel_size=(ft, fh, fw), stride=(ft, fh, fw))
+
+        self.transformer1 = Transformer_ST_TDC_gra_sharp_Bi(
+            num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
+            ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
+            n_win=n_win, topk=topk,
+        )
+        self.transformer2 = Transformer_ST_TDC_gra_sharp_Bi(
+            num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
+            ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
+            n_win=n_win, topk=topk,
+        )
+        self.transformer3 = Transformer_ST_TDC_gra_sharp_Bi(
+            num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
+            ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
+            n_win=n_win, topk=topk,
+        )
 
         self.Stem0 = nn.Sequential(
             nn.Conv3d(3, dim // 4, [1, 5, 5], stride=1, padding=[0, 2, 2]),
@@ -247,23 +325,6 @@ class BiPhysFormer(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool3d((1, 2, 2), stride=(1, 2, 2)),
         )
-        ft, fh, fw = patches
-        self.patch_embedding = nn.Conv3d(dim, dim, kernel_size=(ft, fh, fw), stride=(ft, fh, fw))
-
-        # 12 BiTransformer layers in 3 stages of 4 (PhysFormer 와 동일한 layer 수)
-        layers_per_stage = num_layers // 3
-        self.transformer1 = nn.ModuleList([
-            BiTransformerBlock(dim, num_heads, ff_dim, dropout, theta, n_win=n_win, topk=topk)
-            for _ in range(layers_per_stage)
-        ])
-        self.transformer2 = nn.ModuleList([
-            BiTransformerBlock(dim, num_heads, ff_dim, dropout, theta, n_win=n_win, topk=topk)
-            for _ in range(layers_per_stage)
-        ])
-        self.transformer3 = nn.ModuleList([
-            BiTransformerBlock(dim, num_heads, ff_dim, dropout, theta, n_win=n_win, topk=topk)
-            for _ in range(layers_per_stage)
-        ])
 
         self.upsample = nn.Sequential(
             nn.Upsample(scale_factor=(2, 1, 1)),
@@ -279,32 +340,42 @@ class BiPhysFormer(nn.Module):
         )
         self.ConvBlockLast = nn.Conv1d(dim // 2, 1, 1, stride=1, padding=0)
 
-    def forward(self, x):
-        B = x.shape[0]
+        self.init_weights()
+
+    @torch.no_grad()
+    def init_weights(self):
+        """PhysFormer 원본: Linear xavier_uniform + bias normal_(std=1e-6)."""
+        def _init(m):
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.normal_(m.bias, std=1e-6)
+        self.apply(_init)
+
+    def forward(self, x, gra_sharp=2.0):
+        """x: (B, 3, T, H, W). Returns (rPPG, Score1, Score2, Score3) — PhysFormer 동일."""
+        b, c, t, fh, fw = x.shape
+
         x = self.Stem0(x)
         x = self.Stem1(x)
         x = self.Stem2(x)
-        x = self.patch_embedding(x)            # (B, dim, t, h, w)
-        _, C, t, h, w = x.shape
-        x = x.flatten(2).transpose(1, 2)       # (B, P, C)
+        x = self.patch_embedding(x)        # (B, dim, t/4, 4, 4)
+        x = x.flatten(2).transpose(1, 2)   # (B, t/4*4*4, dim)
 
-        for blk in self.transformer1:
-            x = blk(x, self.gra_sharp, t, h, w)
-        for blk in self.transformer2:
-            x = blk(x, self.gra_sharp, t, h, w)
-        for blk in self.transformer3:
-            x = blk(x, self.gra_sharp, t, h, w)
+        T1, S1 = self.transformer1(x, gra_sharp)
+        T2, S2 = self.transformer2(T1, gra_sharp)
+        T3, S3 = self.transformer3(T2, gra_sharp)
 
-        features_last = x.transpose(1, 2).reshape(B, C, t, h, w)
+        features_last = T3.transpose(1, 2).view(b, self.dim, t // 4, 4, 4)
         features_last = self.upsample(features_last)
         features_last = self.upsample2(features_last)
-        features_last = torch.mean(features_last, dim=3)
-        features_last = torch.mean(features_last, dim=3)
-        rppg = self.ConvBlockLast(features_last).squeeze(1)
-        return rppg
+        features_last = torch.mean(features_last, 3)
+        features_last = torch.mean(features_last, 3)
+        rPPG = self.ConvBlockLast(features_last).squeeze(1)
+        return rPPG, S1, S2, S3
 
     def load_pretrained_pe(self, path):
-        """PhysFormer 사전학습 PE block (Stem0/1/2 + patch_embedding) weight 로드."""
+        """Optional: load Stem0/1/2 + patch_embedding weights."""
         sd = torch.load(path, map_location='cpu')
         own_sd = self.state_dict()
         loaded = 0
@@ -314,3 +385,7 @@ class BiPhysFormer(nn.Module):
                 loaded += 1
         self.load_state_dict(own_sd)
         print(f"[BiPhysFormer] Loaded pretrained PE: {loaded} tensors from {path}")
+
+
+# Backward-compat alias (older training scripts import BiPhysFormer)
+BiPhysFormer = ViT_BiPhysFormer

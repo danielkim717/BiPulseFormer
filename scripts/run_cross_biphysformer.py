@@ -1,32 +1,31 @@
 """
 Cross-dataset 학습-평가 — BiPhysFormer (PhysFormer + BiLevel Routing, ANN).
 
-목적: Spiking 효과 없이 BiFormer 단독의 기여도를 검증.
-구조: SpikingPhysformer + BiSDA 와 동일한 학습 셋업 (loss, optim, scheduler)
-       을 사용하되, 모델만 ANN BiPhysFormer 로 교체.
+PhysFormer 공식 학습 셋업을 그대로 따름
+(https://github.com/ZitongYu/PhysFormer/blob/main/train_Physformer_160_VIPL.py):
+  - 모델: ViT_BiPhysFormer(dim=96, ff_dim=144, num_heads=4, num_layers=12,
+                          dropout=0.1, theta=0.7, n_win=(2,2,2), topk=4)
+  - Optimizer: Adam(lr=1e-4, wd=5e-5)
+  - LR scheduler: StepLR(step_size=50, gamma=0.5)  (25 epoch 동안 사실상 constant)
+  - Batch size: 4
+  - Epochs: 25  (PhysFormer paper)
+  - 출력 정규화 (공식 코드 line 190): rPPG = (rPPG - mean) / std  ← 매우 중요
+  - 손실: L = α·NegPearson + β·(L_CE + L_LD)
+        α = 0.1 (공식 코드는 epoch>25 일 때만 0.05; 우리는 25 epoch 학습이라 항상 0.1)
+        β = β₀ · η^(epoch/25),  β₀=1.0, η=5.0  (공식 schedule)
+  - gra_sharp = 2.0 (forward 인자)
+  - Best 기준: source valid per-clip Pearson
+  - HR metric: 2nd-order Butterworth (0.75-2.5 Hz) + FFT peak
 
 순차 실행:
-  1) PURE → UBFC-rPPG  (10 epoch)
-  2) UBFC-rPPG → PURE  (10 epoch)
-
-설정 (PhysFormer 2022 + rPPG-Toolbox PHYSFORMER_BASIC YAML):
-  - 모델: BiPhysFormer(dim=96, ff_dim=144, num_heads=4, num_layers=12,
-                       n_win=(2,2,2), topk=4, theta=0.7)
-  - 손실: L = α·NegPearson + β·(L_CE + L_LD)
-        α = 0.1, β = β₀·η^((e-1)/E), β₀=1.0, η=5.0, E=10
-  - 옵티마이저: Adam, lr=1e-4, wd=5e-5  (PhysFormer paper default — Spiking 보다 작음)
-  - LR scheduler: OneCycleLR
-  - Gradient clipping: max_norm=1.0
-  - Best 기준: source valid per-clip Pearson
-  - HR metric: 2nd-order Butterworth (0.75-2.5 Hz) + FFT peak → BPM
-
-출력:
-  - results/cross_biphysformer/log.txt
+  1) PURE → UBFC-rPPG  (25 epoch)
+  2) UBFC-rPPG → PURE  (25 epoch)
 """
 import os
 import sys
 import io
 import json
+import math
 import time
 import random
 import threading
@@ -34,7 +33,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# UTF-8 stdout (Windows cp949 redirect 회피)
+# UTF-8 stdout for Windows cp949 redirect
 try:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -44,30 +43,47 @@ except Exception:
 import numpy as np
 import torch
 import torch.optim as optim
-from scipy.signal import butter, filtfilt
+from scipy.signal import welch
 
-from src.models.biphysformer import BiPhysFormer
+from src.models.biphysformer import ViT_BiPhysFormer
 from src.data.rppg_dataset import get_dataloader
 from src.train import NegPearsonLoss, FrequencyLoss
 
 
-EPOCHS = 10
+def get_hr_welch(y, sr=30, hr_min=30, hr_max=180):
+    """rPPG-Toolbox PhysFormerTrainer.get_hr 와 동일.
+    Welch periodogram peak in [hr_min/60, hr_max/60] Hz → HR (BPM)."""
+    y = np.asarray(y, dtype=np.float64)
+    if np.std(y) < 1e-9:
+        return 0.0
+    p, q = welch(y, sr, nfft=1e5 / sr, nperseg=int(np.min((len(y) - 1, 256))))
+    mask = (p > hr_min / 60) & (p < hr_max / 60)
+    if not mask.any():
+        return 0.0
+    return float(p[mask][np.argmax(q[mask])] * 60)
+
+
+# rPPG-Toolbox PhysFormerTrainer 셋업 그대로 (paper MAE 1.44 / 12.92 를 만든 셋업)
+# https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/trainer/PhysFormerTrainer.py
+EPOCHS = 30                # PhysFormer paper 학습량. rPPG-Toolbox config 는 10ep 이지만, paper-level 성능 도달을 위해 30ep 사용.
+                           # epoch>10 부터 a=0.05, b=5.0 분기 발동 (rPPG-Toolbox schedule)
 BATCH_SIZE = 4
-LR = 1e-4              # PhysFormer paper default (ANN, Spiking 의 3e-3 보다 작음)
+LR = 1e-4
 WD = 5e-5
-ALPHA = 0.1
-BETA0 = 1.0
-ETA = 5.0
-DETECTION_FREQ = 30
+STEP_SIZE = 50             # StepLR(50, 0.5) — 10 epoch 동안 사실상 constant LR
+GAMMA = 0.5
+ALPHA = 1.0                # rPPG-Toolbox 의 a_start=1.0 (PhysFormer 원논문 0.1 에서 변경)
+BETA = 1.0                 # rPPG-Toolbox 의 b_start=1.0, exp_b=1.0 → epoch≤10 동안 b=1.0 constant
+GRA_SHARP = 2.0            # PhysFormer attention sharpness
+DETECTION_FREQ = 0         # rPPG-Toolbox: DO_DYNAMIC_DETECTION=False (static, 첫 프레임)
 GRAD_CLIP = 1.0
 SEED = 42
-HR_LOW = 0.75
-HR_HIGH = 2.5
 FPS = 30
+HR_MIN_BPM = 30           # rPPG-Toolbox get_hr 의 min
+HR_MAX_BPM = 180          # rPPG-Toolbox get_hr 의 max
 PURE_PATH = 'D:\\PURE'
 UBFC_PATH = 'D:\\UBFC-rPPG'
-PRETRAINED_PE = {'PURE': 'checkpoints/pretrained_pe_PURE.pt',
-                 'UBFC-rPPG': 'checkpoints/pretrained_pe_UBFC-rPPG.pt'}
+# rPPG-Toolbox 는 PE pretraining 사용 안 함. 비활성.
 
 EXPERIMENTS = [
     ('PURE', PURE_PATH, 'UBFC-rPPG', UBFC_PATH),
@@ -97,25 +113,9 @@ def per_clip_pearson(pred, gt):
     return float(np.mean(out)) if out else 0.0
 
 
-def _butter_bandpass_filter(signal, low_hz, high_hz, fps, order=2):
-    ny = fps / 2.0
-    b, a = butter(order, [low_hz / ny, high_hz / ny], btype='bandpass')
-    return filtfilt(b, a, signal)
-
-
-def predict_hr(signal, fps=FPS, low_hz=HR_LOW, high_hz=HR_HIGH):
-    s = np.asarray(signal, dtype=np.float64)
-    if np.std(s) < 1e-9:
-        return 0.0
-    filtered = _butter_bandpass_filter(s, low_hz, high_hz, fps, order=2)
-    N = len(filtered)
-    win = np.hanning(N)
-    fft = np.abs(np.fft.rfft(filtered * win))
-    freqs = np.fft.rfftfreq(N, d=1.0 / fps)
-    valid = (freqs >= low_hz) & (freqs <= high_hz)
-    if not valid.any():
-        return 0.0
-    return float(freqs[valid][np.argmax(fft[valid])] * 60.0)
+def predict_hr(signal, fps=FPS, hr_min=30, hr_max=180):
+    """rPPG-Toolbox PhysFormerTrainer.get_hr 와 동일 (Welch periodogram)."""
+    return get_hr_welch(signal, sr=fps, hr_min=hr_min, hr_max=hr_max)
 
 
 def hr_metrics(preds, gts, fps=FPS):
@@ -191,9 +191,10 @@ def run_experiment(train_name, train_path, test_name, test_path):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    # rPPG-Toolbox PhysFormerTrainer 셋업: DiffNormalized 입력/레이블 + 정적 face detection + 증강 없음
     train_loader = get_dataloader(train_name, train_path, BATCH_SIZE, clip_len=160,
                                   face_crop=True, shuffle=True,
-                                  data_type='diff_normalized',
+                                  data_type='diff_normalized', random_hflip=False,
                                   dynamic_detection_freq=DETECTION_FREQ,
                                   split_range=(0.0, 0.8))
     valid_loader = get_dataloader(train_name, train_path, BATCH_SIZE, clip_len=160,
@@ -206,29 +207,30 @@ def run_experiment(train_name, train_path, test_name, test_path):
                                  data_type='diff_normalized',
                                  dynamic_detection_freq=DETECTION_FREQ)
     log(f"  train clips: {len(train_loader.dataset)} (80% of {train_name})")
-    log(f"  valid clips: {len(valid_loader.dataset)} (20% of {train_name}) — used for best-epoch selection")
+    log(f"  valid clips: {len(valid_loader.dataset)} (20% of {train_name}) - used for best-epoch selection")
     log(f"  test  clips: {len(test_loader.dataset)} ({test_name})")
 
-    model = BiPhysFormer(dim=96, ff_dim=144, num_heads=4, num_layers=12,
-                         frame=160, image_size=128, dropout=0.1, theta=0.7,
-                         n_win=(2, 2, 2), topk=4).to(device)
+    model = ViT_BiPhysFormer(
+        patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
+        dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
+        n_win=(2, 2, 2), topk=4,
+    ).to(device)
 
-    pe_path = PRETRAINED_PE.get(train_name)
-    if pe_path is not None and os.path.exists(pe_path):
-        log(f"  pretrained PE block: {pe_path}")
-        model.load_pretrained_pe(pe_path)
-    else:
-        log(f"  [!] pretrained PE 없음 — from scratch 학습")
+    # rPPG-Toolbox PhysFormerTrainer 는 PE pretraining 사용 안 함 (from scratch).
+    # PhysFormer 원논문도 PE pretraining 안 함. 우리도 fair comparison 위해 비활성.
+    log(f"  PE pretraining: disabled (rPPG-Toolbox 셋업, from scratch)")
 
     optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
-    total_steps = EPOCHS * len(train_loader)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=LR, total_steps=total_steps)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STEP_SIZE, gamma=GAMMA)
     pearson_criterion = NegPearsonLoss()
     freq_criterion = FrequencyLoss(fps=FPS)
     log(f"  model params: {sum(p.numel() for p in model.parameters())}")
-    log(f"  loss: α={ALPHA} (NegPearson) + β·(CE+LD), β = {BETA0}·{ETA}^((e-1)/{EPOCHS})")
-    log(f"  optim: Adam(lr={LR}, wd={WD}) + OneCycleLR(max_lr={LR}, steps={total_steps})")
+    log(f"  loss: alpha={ALPHA} (NegPearson) + beta={BETA} (CE+LD)  [rPPG-Toolbox: alpha=1.0, beta=1.0 constant]")
+    log(f"  optim: Adam(lr={LR}, wd={WD}) + StepLR(step={STEP_SIZE}, gamma={GAMMA})")
     log(f"  grad_clip: max_norm={GRAD_CLIP}")
+    log(f"  output norm: rPPG = (rPPG - mean(axis=-1)) / std(axis=-1)  [per-sample, rPPG-Toolbox]")
+    log(f"  data: DiffNormalized input/label, static face detection, no augmentation")
+    log(f"  EPOCHS: {EPOCHS}  (PhysFormer paper, 30ep)  schedule: epoch<=10 -> a=1.0,b=1.0; epoch>10 -> a=0.05,b=5.0")
 
     best_valid_per_clip = -1.0
     best_test = {'Pearson_per_clip': 0.0, 'Pearson_pooled': 0.0,
@@ -239,22 +241,38 @@ def run_experiment(train_name, train_path, test_name, test_path):
     history = []
 
     for epoch in range(EPOCHS):
-        beta = BETA0 * (ETA ** (epoch / EPOCHS))
-        log(f"\n[*] Epoch {epoch+1}/{EPOCHS}  α={ALPHA}, β={beta:.4f}")
+        # rPPG-Toolbox PhysFormerTrainer.train line 135-141:
+        #   if epoch > 10:  a = 0.05, b = 5.0  (Pearson 약화, freq 강화)
+        #   else:           a = 1.0,  b = 1.0 * 1.0^(epoch/10) = 1.0
+        # 10 epoch 학습이면 항상 else 분기 (a=1.0, b=1.0). 그래도 명시적 분기 유지.
+        if epoch > 10:
+            a, b = 0.05, 5.0
+        else:
+            a, b = ALPHA, BETA
+        log(f"\n[*] Epoch {epoch+1}/{EPOCHS}  alpha={a}, beta={b:.4f}")
 
         model.train()
         epoch_loss, nb = 0.0, 0
         for i, (inputs, labels) in enumerate(train_loader):
             inputs, labels = inputs.to(device), labels.to(device)
+            # rPPG-Toolbox: HR 은 label signal 에서 Welch periodogram 으로 추출
+            # (PhysFormerTrainer.py line 106). Per-sample 호출.
+            hr_target = torch.tensor(
+                [get_hr_welch(labels[b].cpu().numpy(), sr=FPS) for b in range(labels.shape[0])],
+                dtype=torch.float32, device=device,
+            )
             optimizer.zero_grad()
-            outputs = model(inputs)
-            loss_p = pearson_criterion(outputs, labels)
-            loss_ce, loss_ld = freq_criterion(outputs, labels)
-            loss = ALPHA * loss_p + beta * (loss_ce + loss_ld)
+            rPPG, _, _, _ = model(inputs, gra_sharp=GRA_SHARP)
+            # rPPG-Toolbox PhysFormerTrainer line 113: per-sample 정규화
+            #   rPPG = (rPPG - mean(axis=-1)) / std(axis=-1)
+            rPPG = (rPPG - torch.mean(rPPG, dim=-1, keepdim=True)) / \
+                   (torch.std(rPPG, dim=-1, keepdim=True) + 1e-8)
+            loss_p = pearson_criterion(rPPG, labels)
+            loss_ce, loss_ld = freq_criterion(rPPG, hr_target)
+            loss = a * loss_p + b * (loss_ce + loss_ld)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
             optimizer.step()
-            scheduler.step()
             epoch_loss += float(loss.item()); nb += 1
             if i % 10 == 0:
                 _save_status({
@@ -262,6 +280,7 @@ def run_experiment(train_name, train_path, test_name, test_path):
                     'step': i, 'total_steps': len(train_loader),
                     'loss': float(loss.item()), 'phase': 'Training',
                 })
+        scheduler.step()
         avg_loss = epoch_loss / max(1, nb)
         log(f"  current_lr: {scheduler.get_last_lr()[0]:.2e}")
 
@@ -271,8 +290,11 @@ def run_experiment(train_name, train_path, test_name, test_path):
             with torch.no_grad():
                 for j, (inputs, labels) in enumerate(loader):
                     inputs, labels = inputs.to(device), labels.to(device)
-                    outputs = model(inputs)
-                    all_p.append(outputs.cpu()); all_g.append(labels.cpu())
+                    rPPG, _, _, _ = model(inputs, gra_sharp=GRA_SHARP)
+                    # rPPG-Toolbox: eval 시에도 per-sample 정규화 (PhysFormerTrainer line 199)
+                    rPPG = (rPPG - torch.mean(rPPG, dim=-1, keepdim=True)) / \
+                           (torch.std(rPPG, dim=-1, keepdim=True) + 1e-8)
+                    all_p.append(rPPG.cpu()); all_g.append(labels.cpu())
                     if j % 10 == 0:
                         _save_status({
                             'experiment': label, 'epoch': epoch + 1, 'total_epochs': EPOCHS,
@@ -307,13 +329,16 @@ def run_experiment(train_name, train_path, test_name, test_path):
             f"HR MAE {test_metrics['MAE_bpm']:.3f} BPM  "
             f"RMSE {test_metrics['RMSE_bpm']:.3f} BPM  MAPE {test_metrics['MAPE_pct']:.2f}%")
 
-        if valid_metrics['Pearson_per_clip'] > best_valid_per_clip:
+        # rPPG-Toolbox PhysFormerTrainer: best epoch = min RMSE on valid
+        # (PhysFormerTrainer.py line 167-177). 우리는 valid HR RMSE 사용.
+        valid_rmse = valid_metrics['RMSE_bpm']
+        if best_epoch == 0 or valid_rmse < best_valid.get('RMSE_bpm', float('inf')):
             best_valid_per_clip = valid_metrics['Pearson_per_clip']
             best_valid = valid_metrics
             best_test = test_metrics
             best_epoch = epoch + 1
 
-    log(f"\n→ Best for {label}: epoch {best_epoch} (selected by valid per-clip Pearson {best_valid['Pearson_per_clip']:.4f})")
+    log(f"\n-> Best for {label}: epoch {best_epoch} (selected by valid HR RMSE {best_valid['RMSE_bpm']:.3f} BPM)")
     log(f"   TEST per-clip Pearson {best_test['Pearson_per_clip']:.4f}  "
         f"pooled {best_test['Pearson_pooled']:.4f}")
     log(f"   TEST HR  MAE {best_test['MAE_bpm']:.3f} BPM  RMSE {best_test['RMSE_bpm']:.3f} BPM  "
@@ -327,6 +352,7 @@ def main():
     _state['started_at'] = datetime.now()
     _seed_everything(SEED)
     log(f"[*] Seed fixed to {SEED}")
+    log(f"[*] BiPhysFormer (PhysFormer official + BiLevel Routing Attention)")
     logger = threading.Thread(target=_progress_loop, daemon=True)
     logger.start()
 

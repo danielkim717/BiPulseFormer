@@ -29,7 +29,7 @@ class RPPGDataset(Dataset):
                  face_crop=False, subjects_filter=None,
                  face_detection_backend='HC', larger_box_coef=1.5,
                  dynamic_detection_freq=0, data_type='standardized',
-                 split_range=None,
+                 split_range=None, random_hflip=False,
                  # legacy aliases for backwards compatibility
                  dynamic_detection=None, standardize_input=None):
         """split_range: (begin, end) ∈ [0, 1] tuple. subject 정렬 후 해당 비율 구간만 사용.
@@ -47,6 +47,8 @@ class RPPGDataset(Dataset):
         if standardize_input is False:
             data_type = 'raw'
         self.data_type = data_type
+        # PhysFormer 공식 augmentation (Loadtemporal_data.py RandomHorizontalFlip)
+        self.random_hflip = random_hflip
         # Backwards compat: dynamic_detection=True (legacy bool) -> 30
         if dynamic_detection is True and dynamic_detection_freq == 0:
             dynamic_detection_freq = 30
@@ -311,6 +313,11 @@ class RPPGDataset(Dataset):
         frames = torch.stack(frames)               # (T_raw, C, H, W)
         frames = frames.permute(1, 0, 2, 3)        # (C, T_raw, H, W)
 
+        # PhysFormer 공식 RandomHorizontalFlip — 클립 전체 동일 flip (0.5 확률)
+        # label 은 LR-invariant 라 그대로.
+        if self.random_hflip and torch.rand(1).item() < 0.5:
+            frames = torch.flip(frames, dims=[-1])
+
         if self.data_type == 'standardized':
             mean = frames.mean()
             std = frames.std() + 1e-7
@@ -340,7 +347,7 @@ def get_dataloader(dataset_name, root_dir, batch_size=2, clip_len=30, img_size=1
                    face_crop=False, subjects_filter=None, shuffle=True,
                    face_detection_backend='HC', larger_box_coef=1.5,
                    dynamic_detection_freq=0, data_type='standardized',
-                   split_range=None,
+                   split_range=None, random_hflip=False,
                    dynamic_detection=None, standardize_input=None,
                    drop_last=None):
     dataset = RPPGDataset(dataset_name, root_dir, clip_len=clip_len, img_size=img_size,
@@ -350,6 +357,7 @@ def get_dataloader(dataset_name, root_dir, batch_size=2, clip_len=30, img_size=1
                           dynamic_detection_freq=dynamic_detection_freq,
                           data_type=data_type,
                           split_range=split_range,
+                          random_hflip=random_hflip,
                           dynamic_detection=dynamic_detection,
                           standardize_input=standardize_input)
     # 마지막 incomplete batch 가 SNN 내부 BN 통계 (track_running_stats=False) 를

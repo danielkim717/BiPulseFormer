@@ -1,7 +1,11 @@
 """
 Loss functions used by the active training pipeline.
 
-NegPearsonLoss + FrequencyLoss (PhysFormer/Spiking-PhysFormer recipe).
+NegPearsonLoss + FrequencyLoss — rPPG-Toolbox PhysFormer recipe 와 동일하게 정렬.
+
+Reference (rPPG-Toolbox):
+  - PhysFormerTrainer.py: https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/trainer/PhysFormerTrainer.py
+  - PhysFormerLossComputer.py: https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/loss/PhysFormerLossComputer.py
 """
 import math
 import numpy as np
@@ -11,6 +15,8 @@ import torch.nn.functional as F
 
 
 class NegPearsonLoss(nn.Module):
+    """rPPG-Toolbox PhysNetNegPearsonLoss 와 동일.
+    Pearson 의 (1 - r) 를 클립별 평균. label/pred 모두 (B, T)."""
     def __init__(self):
         super().__init__()
 
@@ -29,72 +35,107 @@ class NegPearsonLoss(nn.Module):
         return 1.0 - torch.mean(pearson)
 
 
-class FrequencyLoss(nn.Module):
-    """PhysFormer / Spiking-PhysFormer Frequency loss (TorchLossComputer 재현).
+# =============================================================================
+# rPPG-Toolbox PhysFormerLossComputer 재현 (per-sample 호출 방식)
+# =============================================================================
 
-    bpm range 40-180 (140 bins). Hanning window, 정규화된 complex_absolute (sum=1).
-    target BPM index 는 labels 에서 argmax(complex_absolute) 로 추출.
+def _normal_sampling(mean, label_k, std):
+    """Gaussian PDF (un-normalized). rPPG-Toolbox normal_sampling 과 동일."""
+    return math.exp(-(label_k - mean) ** 2 / (2 * std ** 2)) / (math.sqrt(2 * math.pi) * std)
 
-    Returns (loss_ce, loss_ld):
-      - loss_ce: F.cross_entropy(complex_absolute, target_idx)  (PhysFormer recipe 그대로)
-      - loss_ld: KL(softmax(complex_absolute) || Gaussian(target_idx, std)) — DLDL_softmax2
 
-    Reference:
-      https://github.com/ZitongYu/PhysFormer/blob/main/TorchLossComputer.py
+def _kl_loss(inputs, labels):
+    """rPPG-Toolbox kl_loss: KLDivLoss(reduction='sum') with log_softmax(inputs).
+    inputs: (140,) frequency distribution
+    labels: (140,) target gaussian distribution"""
+    labels = labels.view(1, -1)
+    criterion = nn.KLDivLoss(reduction='sum')
+    return criterion(F.log_softmax(inputs, dim=-1), labels)
+
+
+def _compute_complex_absolute_given_k(output, k, N):
+    """Hanning-windowed DFT magnitude squared at frequencies k.
+    output: (T,)   k: (num_bpm,)   →  (1, num_bpm)
+    rPPG-Toolbox compute_complex_absolute_given_k 과 동일 (per-sample)."""
+    device = output.device
+    two_pi_n_over_N = 2.0 * math.pi * torch.arange(0, N, dtype=torch.float32, device=device) / N
+    hanning = torch.from_numpy(np.hanning(N).astype(np.float32)).to(device).view(1, -1)
+    windowed = output.view(1, -1) * hanning            # (1, N)
+    windowed = windowed.view(1, 1, -1)                 # (1, 1, N)
+    k = k.view(1, -1, 1)                               # (1, num_bpm, 1)
+    two_pi_n_over_N = two_pi_n_over_N.view(1, 1, -1)   # (1, 1, N)
+    sin_part = torch.sum(windowed * torch.sin(k * two_pi_n_over_N), dim=-1)
+    cos_part = torch.sum(windowed * torch.cos(k * two_pi_n_over_N), dim=-1)
+    return sin_part ** 2 + cos_part ** 2               # (1, num_bpm)
+
+
+def _complex_absolute_one(output, fps, bpm_range):
+    """Single-sample softmax-like normalized power spectrum over bpm_range."""
+    N = output.size(-1)
+    unit_per_hz = fps / N
+    feasible_bpm = bpm_range / 60.0
+    k = feasible_bpm / unit_per_hz
+    ca = _compute_complex_absolute_given_k(output, k, N)
+    return (1.0 / (ca.sum() + 1e-12)) * ca              # (1, num_bpm)  sum=1
+
+
+def cross_entropy_power_spectrum_DLDL_softmax2(rppg, target_hr_bpm, fps, std=1.0,
+                                               bpm_low=40, bpm_high=180):
+    """rPPG-Toolbox cross_entropy_power_spectrum_DLDL_softmax2 와 동일.
+
+    rppg: (T,) — 단일 샘플 rPPG signal (이미 정규화됨)
+    target_hr_bpm: scalar tensor — Welch peak HR (BPM, e.g. 72.5)
+    fps: scalar (e.g. 30)
+
+    Returns: (loss_distribution_kl, loss_ce, hr_mae)
     """
+    device = rppg.device
+    target = target_hr_bpm.view(1, -1) if target_hr_bpm.dim() == 0 else target_hr_bpm.view(1, -1)
+    int_target = int(target_hr_bpm.item())
 
+    # target_distribution: Gaussian centered at HR_BPM over bins [40, 180) BPM (140 bins)
+    target_dist = [_normal_sampling(int_target, i, std) for i in range(bpm_low, bpm_high)]
+    target_dist = [v if v > 1e-15 else 1e-15 for v in target_dist]
+    target_dist = torch.tensor(target_dist, dtype=torch.float32, device=device)
+
+    bpm_range = torch.arange(bpm_low, bpm_high, dtype=torch.float32, device=device)
+    ca = _complex_absolute_one(rppg, fps, bpm_range)        # (1, 140), sum=1
+
+    fre_distribution = ca / torch.sum(ca)                   # already sum=1, idempotent
+    loss_kl = _kl_loss(fre_distribution, target_dist)
+
+    whole_max_idx = ca.view(-1).argmax().type(torch.float32)
+    target_idx = (target - bpm_low).view(1).type(torch.long)
+    loss_ce = F.cross_entropy(ca, target_idx)
+    hr_mae = torch.abs(target.view(-1)[0] - bpm_low - whole_max_idx)
+    return loss_kl, loss_ce, hr_mae
+
+
+class FrequencyLoss(nn.Module):
+    """rPPG-Toolbox PhysFormerTrainer 의 frequency loss 호출 패턴 재현.
+
+    forward(preds, target_hr_bpm) → (loss_ce, loss_ld)
+      preds: (B, T) — per-sample 정규화된 rPPG (학습 loop 에서 이미 정규화됨)
+      target_hr_bpm: (B,) — label 신호에서 Welch periodogram 으로 추출한 HR (BPM)
+
+    내부적으로 sample 별로 cross_entropy_power_spectrum_DLDL_softmax2 호출 후 평균.
+    """
     def __init__(self, fps=30, bpm_low=40, bpm_high=180, std=1.0):
         super().__init__()
         self.fps = fps
         self.bpm_low = bpm_low
         self.bpm_high = bpm_high
-        self.num_bpm = bpm_high - bpm_low
         self.std = std
 
-    @staticmethod
-    def _compute_complex_absolute_given_k(signal, k, N):
-        """Hanning-windowed DFT magnitude squared at frequencies k.
-        signal: (B, T)  k: (num_bpm,)  N: int  →  (B, num_bpm)"""
-        device = signal.device
-        two_pi_n_over_N = 2.0 * math.pi * torch.arange(0, N, dtype=torch.float32, device=device) / N
-        hanning = torch.from_numpy(np.hanning(N).astype(np.float32)).to(device)
-        windowed = signal * hanning.unsqueeze(0)
-        phase = k.view(-1, 1) * two_pi_n_over_N.view(1, -1)
-        sin_basis = torch.sin(phase)
-        cos_basis = torch.cos(phase)
-        sin_part = windowed @ sin_basis.t()
-        cos_part = windowed @ cos_basis.t()
-        return sin_part * sin_part + cos_part * cos_part
-
-    def _complex_absolute(self, signal):
-        B, N = signal.shape
-        unit_per_hz = self.fps / N
-        bpm_range = torch.arange(self.bpm_low, self.bpm_high, dtype=torch.float32, device=signal.device)
-        feasible_bpm = bpm_range / 60.0
-        k = feasible_bpm / unit_per_hz
-        ca = self._compute_complex_absolute_given_k(signal, k, N)
-        ca = ca / (ca.sum(dim=1, keepdim=True) + 1e-7)
-        return ca
-
-    def _gaussian_target_distribution(self, target_idx):
-        bins = torch.arange(self.num_bpm, dtype=torch.float32, device=target_idx.device).view(1, -1)
-        mean = target_idx.view(-1, 1).float()
-        gauss = torch.exp(-(bins - mean) ** 2 / (2.0 * self.std ** 2)) / (math.sqrt(2.0 * math.pi) * self.std)
-        gauss = torch.clamp(gauss, min=1e-15)
-        gauss = gauss / gauss.sum(dim=1, keepdim=True)
-        return gauss
-
-    def forward(self, preds, labels):
-        pred_ca = self._complex_absolute(preds)
-        with torch.no_grad():
-            label_ca = self._complex_absolute(labels)
-            target_idx = torch.argmax(label_ca, dim=1)
-
-        loss_ce = F.cross_entropy(pred_ca, target_idx)
-
-        gauss_target = self._gaussian_target_distribution(target_idx)
-        pred_softmax = F.softmax(pred_ca, dim=1)
-        log_pred_softmax = torch.log(pred_softmax + 1e-15)
-        loss_ld = F.kl_div(log_pred_softmax, gauss_target, reduction='batchmean')
-
-        return loss_ce, loss_ld
+    def forward(self, preds, target_hr_bpm):
+        B = preds.shape[0]
+        loss_ce_total = 0.0
+        loss_kl_total = 0.0
+        for b in range(B):
+            loss_kl, loss_ce, _ = cross_entropy_power_spectrum_DLDL_softmax2(
+                preds[b], target_hr_bpm[b], self.fps, std=self.std,
+                bpm_low=self.bpm_low, bpm_high=self.bpm_high
+            )
+            loss_ce_total = loss_ce_total + loss_ce
+            loss_kl_total = loss_kl_total + loss_kl
+        return loss_ce_total / B, loss_kl_total / B
