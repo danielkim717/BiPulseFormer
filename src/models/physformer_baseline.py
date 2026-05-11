@@ -66,11 +66,11 @@ class MultiHeadedSelfAttention_TDC_gra_sharp(nn.Module):
         super().__init__()
         self.proj_q = nn.Sequential(
             CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
-            nn.BatchNorm3d(dim, track_running_stats=False),
+            nn.BatchNorm3d(dim),
         )
         self.proj_k = nn.Sequential(
             CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
-            nn.BatchNorm3d(dim, track_running_stats=False),
+            nn.BatchNorm3d(dim),
         )
         self.proj_v = nn.Sequential(
             nn.Conv3d(dim, dim, 1, stride=1, padding=0, groups=1, bias=False),
@@ -102,17 +102,17 @@ class PositionWiseFeedForward_ST(nn.Module):
         super().__init__()
         self.fc1 = nn.Sequential(
             nn.Conv3d(dim, ff_dim, 1, stride=1, padding=0, bias=False),
-            nn.BatchNorm3d(ff_dim, track_running_stats=False),
+            nn.BatchNorm3d(ff_dim),
             nn.ELU(),
         )
         self.STConv = nn.Sequential(
             nn.Conv3d(ff_dim, ff_dim, 3, stride=1, padding=1, groups=ff_dim, bias=False),
-            nn.BatchNorm3d(ff_dim, track_running_stats=False),
+            nn.BatchNorm3d(ff_dim),
             nn.ELU(),
         )
         self.fc2 = nn.Sequential(
             nn.Conv3d(ff_dim, dim, 1, stride=1, padding=0, bias=False),
-            nn.BatchNorm3d(dim, track_running_stats=False),
+            nn.BatchNorm3d(dim),
         )
 
     def forward(self, x):
@@ -205,19 +205,19 @@ class ViT_ST_ST_Compact3_TDC_gra_sharp(nn.Module):
 
         self.Stem0 = nn.Sequential(
             nn.Conv3d(3, dim // 4, [1, 5, 5], stride=1, padding=[0, 2, 2]),
-            nn.BatchNorm3d(dim // 4, track_running_stats=False),
+            nn.BatchNorm3d(dim // 4),
             nn.ReLU(inplace=True),
             nn.MaxPool3d((1, 2, 2), stride=(1, 2, 2)),
         )
         self.Stem1 = nn.Sequential(
             nn.Conv3d(dim // 4, dim // 2, [3, 3, 3], stride=1, padding=1),
-            nn.BatchNorm3d(dim // 2, track_running_stats=False),
+            nn.BatchNorm3d(dim // 2),
             nn.ReLU(inplace=True),
             nn.MaxPool3d((1, 2, 2), stride=(1, 2, 2)),
         )
         self.Stem2 = nn.Sequential(
             nn.Conv3d(dim // 2, dim, [3, 3, 3], stride=1, padding=1),
-            nn.BatchNorm3d(dim, track_running_stats=False),
+            nn.BatchNorm3d(dim),
             nn.ReLU(inplace=True),
             nn.MaxPool3d((1, 2, 2), stride=(1, 2, 2)),
         )
@@ -225,13 +225,13 @@ class ViT_ST_ST_Compact3_TDC_gra_sharp(nn.Module):
         self.upsample = nn.Sequential(
             nn.Upsample(scale_factor=(2, 1, 1)),
             nn.Conv3d(dim, dim, [3, 1, 1], stride=1, padding=(1, 0, 0)),
-            nn.BatchNorm3d(dim, track_running_stats=False),
+            nn.BatchNorm3d(dim),
             nn.ELU(),
         )
         self.upsample2 = nn.Sequential(
             nn.Upsample(scale_factor=(2, 1, 1)),
             nn.Conv3d(dim, dim // 2, [3, 1, 1], stride=1, padding=(1, 0, 0)),
-            nn.BatchNorm3d(dim // 2, track_running_stats=False),
+            nn.BatchNorm3d(dim // 2),
             nn.ELU(),
         )
         self.ConvBlockLast = nn.Conv1d(dim // 2, 1, 1, stride=1, padding=0)
