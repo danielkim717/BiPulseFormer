@@ -1,4 +1,4 @@
-# BiPulseFormerr: BiLevel Routing Attention for rPPG
+# BiPulseFormer: BiLevel Routing Attention for rPPG
 
 PhysFormer (Yu et al., CVPR 2022) 의 transformer block 에 **BiFormer (Zhu et al., CVPR 2023) 의 BiLevel Routing Attention** 을 적용한 **rPPG (remote photoplethysmography) 심박수 추정** 모델.
 
