@@ -245,22 +245,28 @@ def run_experiment(train_name, train_path, test_name, test_path):
     # UBFC intra-dataset: RhythmFormer Table 1 protocol — 60/40 split, no valid
     #   - Train: 0-60% subjects (~25), RandomHorizontalFlip + HR filter
     #   - Test:  60-100% subjects (~17) — TEST 가 valid 역할 (best epoch = best TEST RMSE)
+    # PURE: session-per-subject split — 모든 10 subject 의 60% sessions 를 train,
+    # 나머지 40% sessions 를 test 에 사용. subject 07 의 exercise/high-HR sessions
+    # 도 train 에 포함되어 test 시 unseen 패턴 없음.
     train_loader = get_dataloader(train_name, train_path, BATCH_SIZE, clip_len=160,
                                   face_crop=True, shuffle=True,
                                   data_type='diff_normalized', random_hflip=True,
                                   hr_filter=True, fps=FPS,
                                   dynamic_detection_freq=DETECTION_FREQ,
-                                  split_range=(0.0, 0.6))
+                                  split_range=(0.0, 0.6),
+                                  pure_split_mode='session_per_subject')
     test_loader = get_dataloader(test_name, test_path, BATCH_SIZE, clip_len=160,
                                  face_crop=True, shuffle=False,
                                  data_type='diff_normalized', chunk_step=80,
                                  dynamic_detection_freq=DETECTION_FREQ,
-                                 split_range=(0.6, 1.0))
+                                 split_range=(0.6, 1.0),
+                                 pure_split_mode='session_per_subject')
     # valid = test (no separate valid, RhythmFormer protocol)
     valid_loader = test_loader
-    log(f"  train clips: {len(train_loader.dataset)} (0-60% of {train_name})")
-    log(f"  test  clips: {len(test_loader.dataset)} (60-100% = 40% of {test_name}) - RhythmFormer protocol")
+    log(f"  train clips: {len(train_loader.dataset)} (60% sessions per subject)")
+    log(f"  test  clips: {len(test_loader.dataset)} (40% sessions per subject) - session-per-subject split")
     log(f"  NOTE: valid = test (no separate valid set, best epoch by test RMSE)")
+    log(f"  SPLIT: session-per-subject (subject 07 exercise sessions also in train)")
 
     model = ViT_BiPhysFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,

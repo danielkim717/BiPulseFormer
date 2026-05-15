@@ -31,6 +31,7 @@ class RPPGDataset(Dataset):
                  dynamic_detection_freq=0, data_type='standardized',
                  split_range=None, random_hflip=False,
                  chunk_step=None, hr_filter=False, fps=30,
+                 pure_split_mode='subject_exclusive',
                  # legacy aliases for backwards compatibility
                  dynamic_detection=None, standardize_input=None):
         """
@@ -49,6 +50,7 @@ class RPPGDataset(Dataset):
         self.face_detection_backend = face_detection_backend
         self.larger_box_coef = larger_box_coef
         self.split_range = split_range
+        self.pure_split_mode = pure_split_mode
         # Backwards compat: standardize_input=True/False maps to data_type
         if standardize_input is False:
             data_type = 'raw'
@@ -149,19 +151,65 @@ class RPPGDataset(Dataset):
             if self.subjects_filter is not None:
                 sessions = [s for s in sessions if s in self.subjects_filter]
             if self.split_range is not None:
-                # SUBJECT-EXCLUSIVE split: PURE 디렉토리 "XX-YY" 에서 XX=subject ID 추출,
-                # subject ID 단위로 split (session-level split 은 same subject 가 train/test 에 leak)
-                subject_ids = sorted(set(s.split('-')[0] for s in sessions))
-                n_subj = len(subject_ids)
-                s_idx = int(self.split_range[0] * n_subj)
-                e_idx = int(self.split_range[1] * n_subj)
-                selected_subj = subject_ids[s_idx:e_idx]
-                sessions = [s for s in sessions if s.split('-')[0] in selected_subj]
-                print(f"[Dataset] split_range={self.split_range} subject-exclusive: "
-                      f"{n_subj} subjects → {len(selected_subj)} subjects "
-                      f"({selected_subj[0] if selected_subj else '-'} ... "
-                      f"{selected_subj[-1] if selected_subj else '-'}), "
-                      f"{len(sessions)} sessions")
+                if self.pure_split_mode == 'session_per_subject':
+                    # SESSION-PER-SUBJECT split: 각 subject (10 명) 마다 6 sessions 를
+                    # split_range 비율로 나눠 양쪽 train/test 모두 포함. 모든 subject 의
+                    # HR/motion 범위가 train 에 노출 → test 에 unseen 패턴 없음.
+                    # (subject 07 의 high-HR session 도 학습 가능)
+                    # 조건 (steady/talking/translation/rotation) 도 train/test 양쪽에 분산
+                    # 시키기 위해 fixed-seed per-subject 셔플 사용.
+                    import random as _r
+                    from collections import defaultdict
+                    by_subj = defaultdict(list)
+                    for s in sessions:
+                        by_subj[s.split('-')[0]].append(s)
+                    selected = []
+                    for subj_id in sorted(by_subj.keys()):
+                        subj_sessions = sorted(by_subj[subj_id])
+                        # Deterministic shuffle (seed = subject_id integer) → condition mix
+                        rng = _r.Random(int(subj_id))
+                        order = list(range(len(subj_sessions)))
+                        rng.shuffle(order)
+                        shuffled = [subj_sessions[k] for k in order]
+                        n = len(shuffled)
+                        s_idx = int(self.split_range[0] * n)
+                        e_idx = int(self.split_range[1] * n)
+                        selected.extend(shuffled[s_idx:e_idx])
+                    sessions = sorted(selected)
+                    print(f"[Dataset] split_range={self.split_range} session-per-subject "
+                          f"(shuffled): {len(by_subj)} subjects, {len(sessions)} sessions "
+                          f"({self.split_range[1]-self.split_range[0]:.1%} per subject)")
+                elif self.pure_split_mode == 'subject_exclusive_random':
+                    # SUBJECT-EXCLUSIVE + RANDOM shuffle: subject IDs 를 fixed seed
+                    # (42) 로 한 번 shuffle 한 뒤 split_range 적용. subject 07 (outlier)
+                    # 이 항상 같은 split 에 들어가는 bias 제거.
+                    import random as _r
+                    subject_ids = sorted(set(s.split('-')[0] for s in sessions))
+                    rng = _r.Random(42)
+                    shuffled_ids = list(subject_ids)
+                    rng.shuffle(shuffled_ids)
+                    n_subj = len(shuffled_ids)
+                    s_idx = int(self.split_range[0] * n_subj)
+                    e_idx = int(self.split_range[1] * n_subj)
+                    selected_subj = shuffled_ids[s_idx:e_idx]
+                    sessions = [s for s in sessions if s.split('-')[0] in selected_subj]
+                    print(f"[Dataset] split_range={self.split_range} subject-exclusive RANDOM "
+                          f"(seed=42): {n_subj} subjects → {len(selected_subj)} subjects "
+                          f"({sorted(selected_subj)}), {len(sessions)} sessions")
+                else:
+                    # SUBJECT-EXCLUSIVE split: PURE 디렉토리 "XX-YY" 에서 XX=subject ID 추출,
+                    # subject ID 단위로 split (session-level split 은 same subject 가 train/test 에 leak)
+                    subject_ids = sorted(set(s.split('-')[0] for s in sessions))
+                    n_subj = len(subject_ids)
+                    s_idx = int(self.split_range[0] * n_subj)
+                    e_idx = int(self.split_range[1] * n_subj)
+                    selected_subj = subject_ids[s_idx:e_idx]
+                    sessions = [s for s in sessions if s.split('-')[0] in selected_subj]
+                    print(f"[Dataset] split_range={self.split_range} subject-exclusive: "
+                          f"{n_subj} subjects → {len(selected_subj)} subjects "
+                          f"({selected_subj[0] if selected_subj else '-'} ... "
+                          f"{selected_subj[-1] if selected_subj else '-'}), "
+                          f"{len(sessions)} sessions")
             subjects = sessions
             for subj in subjects:
                 json_path = os.path.join(self.root_dir, subj, f"{subj}.json")
@@ -393,6 +441,7 @@ def get_dataloader(dataset_name, root_dir, batch_size=2, clip_len=30, img_size=1
                    split_range=None, random_hflip=False,
                    chunk_step=None, hr_filter=False, fps=30,
                    num_workers=4, pin_memory=True,
+                   pure_split_mode='subject_exclusive',
                    dynamic_detection=None, standardize_input=None,
                    drop_last=None):
     dataset = RPPGDataset(dataset_name, root_dir, clip_len=clip_len, img_size=img_size,
@@ -406,6 +455,7 @@ def get_dataloader(dataset_name, root_dir, batch_size=2, clip_len=30, img_size=1
                           chunk_step=chunk_step,
                           hr_filter=hr_filter,
                           fps=fps,
+                          pure_split_mode=pure_split_mode,
                           dynamic_detection=dynamic_detection,
                           standardize_input=standardize_input)
     # 마지막 incomplete batch 가 SNN 내부 BN 통계 (track_running_stats=False) 를

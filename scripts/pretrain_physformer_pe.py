@@ -32,14 +32,26 @@ from src.train import NegPearsonLoss, FrequencyLoss
 
 EPOCHS = 10
 BATCH_SIZE = 4
-LR = 1e-4              # PhysFormer 논문 default (SNN 보다 작음)
+LR = 1e-4              # rPPG-Toolbox PhysFormerTrainer 동일
 WD = 5e-5
-ALPHA = 0.1
-BETA0 = 1.0
-ETA = 5.0
-DETECTION_FREQ = 30
+ALPHA = 1.0            # rPPG-Toolbox a_start=1.0 (이전 0.1 오류 수정)
+BETA = 1.0             # rPPG-Toolbox b_start=1.0, exp_b=1.0 (constant)
+DETECTION_FREQ = 0     # rPPG-Toolbox: static face detection
 DATASET_PATHS = {'PURE': 'D:\\PURE', 'UBFC-rPPG': 'D:\\UBFC-rPPG'}
 CKPT_DIR = 'checkpoints'
+
+
+def get_hr_welch(y, sr=30, hr_min=30, hr_max=180):
+    """rPPG-Toolbox PhysFormerTrainer.get_hr 와 동일."""
+    from scipy.signal import welch
+    y = np.asarray(y, dtype=np.float64)
+    if np.std(y) < 1e-9:
+        return 0.0
+    p, q = welch(y, sr, nfft=1e5 / sr, nperseg=int(np.min((len(y) - 1, 256))))
+    mask = (p > hr_min / 60) & (p < hr_max / 60)
+    if not mask.any():
+        return 0.0
+    return float(p[mask][np.argmax(q[mask])] * 60)
 
 
 def per_clip_pearson(pred, gt):
@@ -67,12 +79,11 @@ def main(dataset_name):
     log(f"[*] PhysFormer pretrain on {dataset_name} ({device})")
     log(f"  EPOCHS={EPOCHS}  BATCH={BATCH_SIZE}  LR={LR}  WD={WD}")
 
-    # paper / rPPG-Toolbox 표준: source train 80%, valid 20%. PE pretraining 도
-    # 80% train 사용 (target test 정보 leakage 방지).
-    # PhysFormer 공식 setup (standardized + RandomHorizontalFlip)
+    # rPPG-Toolbox PhysFormer setup: DiffNormalized + static face + HR filter
     loader = get_dataloader(dataset_name, DATASET_PATHS[dataset_name], BATCH_SIZE,
                             clip_len=160, face_crop=True, shuffle=True,
-                            data_type='standardized', random_hflip=True,
+                            data_type='diff_normalized', random_hflip=True,
+                            hr_filter=True, fps=30,
                             dynamic_detection_freq=DETECTION_FREQ,
                             split_range=(0.0, 0.8))
     log(f"  train clips (80%): {len(loader.dataset)}")
@@ -84,27 +95,34 @@ def main(dataset_name):
     log(f"  model params: {sum(p.numel() for p in model.parameters())}")
 
     optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
-    total_steps = EPOCHS * len(loader)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=LR, total_steps=total_steps)
+    # rPPG-Toolbox: StepLR(50, 0.5) — 10 epoch 동안 사실상 constant
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
     pearson_criterion = NegPearsonLoss()
     freq_criterion = FrequencyLoss(fps=30)
 
     for epoch in range(EPOCHS):
-        beta = BETA0 * (ETA ** (epoch / EPOCHS))
-        log(f"\n[*] Epoch {epoch+1}/{EPOCHS}  α={ALPHA}, β={beta:.4f}")
+        a, b = ALPHA, BETA
+        log(f"\n[*] Epoch {epoch+1}/{EPOCHS}  α={a}, β={b:.4f}")
 
         model.train()
         epoch_loss, nb = 0.0, 0
         t0 = time.time()
         for i, (inputs, labels) in enumerate(loader):
             inputs, labels = inputs.to(device), labels.to(device)
+            # rPPG-Toolbox: hr = get_hr(label) per-sample (Welch periodogram BPM)
+            hr_target = torch.tensor(
+                [get_hr_welch(labels[bb].cpu().numpy(), sr=30) for bb in range(labels.shape[0])],
+                dtype=torch.float32, device=device,
+            )
             optimizer.zero_grad()
             rPPG, _, _, _ = model(inputs, gra_sharp=2.0)
-            # PhysFormer 공식: loss 직전 batch-level 정규화
-            rPPG = (rPPG - torch.mean(rPPG)) / (torch.std(rPPG) + 1e-8)
+            # rPPG-Toolbox: per-sample (axis=-1) 정규화 (이전 batch-wise 오류 수정)
+            rPPG = (rPPG - torch.mean(rPPG, dim=-1, keepdim=True)) / \
+                   (torch.std(rPPG, dim=-1, keepdim=True) + 1e-8)
             loss_p = pearson_criterion(rPPG, labels)
-            loss_ce, loss_ld = freq_criterion(rPPG, labels)
-            loss = ALPHA * loss_p + beta * (loss_ce + loss_ld)
+            # GT HR (BPM) 전달 (이전엔 BVP signal 전달 → bug)
+            loss_ce, loss_ld = freq_criterion(rPPG, hr_target)
+            loss = a * loss_p + b * (loss_ce + loss_ld)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()

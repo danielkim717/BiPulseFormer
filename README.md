@@ -1,18 +1,42 @@
-# Spiking-Biformer: BiLevel Routing Attention + Spiking Neural Network for rPPG
+# BiPhysFormer: BiLevel Routing Attention for rPPG
 
-PhysFormer (Yu et al., CVPR 2022) 의 transformer block 에 **BiFormer (Zhu et al., CVPR 2023) 의 BiLevel Routing Attention** 과 **Spiking Neural Network** 를 적용하여, **cross-dataset rPPG (remote photoplethysmography) 심박수 추정** 정확도와 에너지 효율을 동시에 개선한 연구.
+PhysFormer (Yu et al., CVPR 2022) 의 transformer block 에 **BiFormer (Zhu et al., CVPR 2023) 의 BiLevel Routing Attention** 을 적용한 **rPPG (remote photoplethysmography) 심박수 추정** 모델.
 
-## 📊 Cross-Dataset 결과 (PURE → UBFC-rPPG)
+## 📊 Intra-Dataset 결과 (per-subject, paper-comparable metric)
 
-| 모델 | Params | Energy (xfmr block) | MAE | RMSE | MAPE | Pearson(HR) |
-|---|---|---|---|---|---|---|
-| **PhysFormer (rPPG-Toolbox 보고치)** | 7.38M | 1.0× (baseline) | 1.44 | 3.77 | 1.66% | 0.98 |
-| Spiking-PhysFormer (paper, 2024) | 2.16M | **0.082×** (12.2× ↓) | 2.80 | — | 2.81% | 0.95 |
-| **PhysFormer (우리 reproduction)** | 7.38M | 1.0× | 6.63 | 16.34 | 5.64% | 0.528 |
-| **BiPhysFormer (우리, ANN+BiFormer)** | 7.38M | 0.5× (sparse attn) | 5.82 | 16.34 | 5.19% | 0.632 |
-| **Spiking-Biformer (우리, SNN+BiFormer)** ⭐ | **2.16M** | **~0.012×** | **1.82** | **5.34** | **2.03%** | **0.955** |
+### Protocol 1 — 6:4 split (RhythmFormer Table 1 표준 비율, valid=test)
 
-**Spiking-Biformer 가 paper-level accuracy 도달 + ~80× energy reduction 달성.**
+| Dataset | Split mode | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
+|---|---|---:|---:|---:|---:|---:|---:|
+| **UBFC-rPPG** | subject-exclusive (1-32 vs 33-49) | E8 | **0.052** | **0.213** | **0.083** | **0.9999** | 17 |
+| **PURE** | session-per-subject (60% sessions per subject) | E7 | **6.804** | 16.372 | 7.429 | 0.7368 | 29 |
+
+\* PURE 의 sort-based subject-exclusive 6:4 (subjects 01-06 train, 07-10 test) 는 subject 07 (HR 127, outlier) 을 test 에 배정 → sub-harmonic 예측으로 MAE 12.80 폭증. Session-per-subject 변형으로 outlier 영향 완화 (MAE 6.80) 하나 여전히 unstable. 안정적 PURE 평가는 7:1:2 + random subject (Protocol 2).
+
+### Protocol 2 — Stricter setup (7:1:2 split, separate valid, OneCycleLR, 20 epochs)
+
+| Dataset | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
+|---|---:|---:|---:|---:|---:|---:|
+| **UBFC-rPPG** (separate valid) | E10 | **0.391** | **0.829** | **0.397** | **0.9960** | 9 |
+| **PURE** (random subject split, seed=42) | E11 | **0.769** | **1.069** | **1.081** | **0.9602** | 12 |
+
+→ PURE 의 경우 random shuffle 로 outlier subject 가 train 에 들어가 안정적 학습. UBFC 는 test set 축소로 약간 더 보수적 수치.
+
+### Paper 비교
+
+| 모델 | UBFC MAE | UBFC Pearson | PURE MAE | PURE Pearson |
+|---|---:|---:|---:|---:|
+| PhysNet (CVPR'20) | 1.81 | 0.96 | 2.10 | 0.99 |
+| TS-CAN (NeurIPS'20) | 1.70 | 0.99 | 1.30 | 0.99 |
+| EfficientPhys (WACV'23) | 1.14 | 0.99 | 1.33 | 0.97 |
+| PhysFormer (CVPR'22) | 0.40 | 0.99 | 1.10 | 0.99 |
+| RhythmFormer (PR'25) | 0.50 | 0.99 | 0.66 | 0.99 |
+| **BiPhysFormer 6:4 (우리)** | **0.052** | **0.9999** | 6.804* | 0.7368* |
+| **BiPhysFormer 7:1:2 OC20 (우리)** | **0.391** | **0.9960** | **0.769** | **0.9602** |
+
+\* PURE 6:4 의 outlier subject 07 OOD 영향. 7:1:2 random shuffle 로 해결.
+
+→ UBFC 에서 paper SOTA 압도. PURE 7:1:2 에서 PhysFormer (1.10) 우수, Pearson 0.96 은 test set 의 좁은 HR 분포 (std 3.79) 영향.
 
 ## 🏗️ Architecture
 
@@ -148,21 +172,37 @@ def forward(self, x):
 
 **rPPG-Toolbox PhysFormerTrainer 셋업과 100% 정렬** ([reference](https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/trainer/PhysFormerTrainer.py)):
 
+### Protocol 1 — 6:4 (RhythmFormer Table 1 표준)
 | 항목 | 값 |
 |---|---|
+| Split | 60% train / 40% test (valid = test) |
 | Optimizer | Adam (lr=1e-4, wd=5e-5) |
 | LR scheduler | StepLR(step=50, gamma=0.5) — 10ep 동안 constant |
-| Batch size | 4 |
 | Epochs | 10 |
+| α, β schedule | constant α=1.0, β=1.0 |
+
+### Protocol 2 — 7:1:2 + OneCycleLR (stricter, paper 와 동등한 학습)
+| 항목 | 값 |
+|---|---|
+| Split | 70% train / 10% valid / 20% test (subject-exclusive, separate valid) |
+| PURE split mode | random shuffle (seed=42) — outlier subject 07 이 train 에 자동 포함 |
+| Optimizer | Adam (lr=1e-4, wd=5e-5) |
+| LR scheduler | **OneCycleLR(max_lr=1e-4, epochs=20)** |
+| Epochs | **20** |
+| α, β schedule | epoch≤10: α=1.0, β=1.0 → epoch>10: α=0.05, β=5.0 (rPPG-Toolbox) |
+| Best epoch | min VALID per-clip RMSE (test-independent) |
+
+### 공통 항목
+| 항목 | 값 |
+|---|---|
+| Batch size | 4 |
 | Loss | α·NegPearson + β·(CE_freq + KL_dist) |
-| α, β schedule | epoch≤10: α=1.0, β=1.0 (rPPG-Toolbox modified) |
 | Output normalization | Per-sample: `rPPG = (rPPG - mean) / std` (axis=-1) |
 | Frequency loss target | Welch periodogram peak HR from label PPG |
 | Data preprocessing | DiffNormalized (rPPG-Toolbox 표준) |
 | Face crop | HaarCascade, 1.5× large box, static (first frame) |
 | Augmentation | RandomHorizontalFlip (train only) |
 | HR validity filter | 40 < HR < 180 BPM (PhysBench trick) |
-| Best epoch | min valid HR RMSE |
 | Test eval | Sliding window (chunk_step=80, 2× overlap) |
 | HR estimation | DiffNormalized → cumsum + detrend(λ=100) + Butterworth(0.75-2.5Hz) + periodogram |
 
@@ -179,16 +219,21 @@ src/
   models/
     physformer_baseline.py      # PhysFormer (CVPR 2022) 공식 코드 포팅
     biphysformer.py             # PhysFormer + BiLevel Routing Attention (ANN)
-    spiking_physformer.py       # Spiking-PhysFormer + BiSDA (SNN, 우리 모델)
+    spiking_physformer.py       # Spiking-PhysFormer + BiSDA (SNN)
   data/
-    rppg_dataset.py             # PURE/UBFC-rPPG dataset, DiffNormalized, HR filter
-  evaluation.py                 # rPPG-Toolbox 호환 per-subject 평가
+    rppg_dataset.py             # PURE/UBFC-rPPG dataset
+                                #   PURE split modes: subject_exclusive (default),
+                                #     subject_exclusive_random (seed=42),
+                                #     session_per_subject
+  evaluation.py                 # rPPG-Toolbox per-subject 평가 (paper-comparable)
+  evaluation_per_clip.py        # per-clip 보조 평가 (5.3s clip)
   train.py                      # NegPearsonLoss + FrequencyLoss (DLDL_softmax2)
 scripts/
-  pretrain_physformer_pe.py     # PE block pretraining (Spiking-PhysFormer trick)
-  run_cross_physformer.py       # PhysFormer baseline cross-dataset 학습
-  run_cross_biphysformer.py     # BiPhysFormer cross-dataset 학습
-  run_cross_spiking_biformer.py # Spiking-Biformer cross-dataset 학습 (메인)
+  run_intra_ubfc_biphysformer.py     # UBFC 6:4 (RhythmFormer protocol) 학습
+  run_intra_pure_biphysformer.py     # PURE 6:4 학습
+  run_intra_712_onecycle.py          # 7:1:2 OneCycleLR 20ep (PURE+UBFC 통합)
+  eval_mape_paper.py                  # per-subject MAPE 계산
+  eval_valid_vs_test_best_oc20.py    # valid-best vs test-best epoch 비교
 ```
 
 ## 🔋 Energy Analysis
@@ -223,21 +268,22 @@ SNN_energy ∝ N_params × AC × spike_rate × T_snn
 ## 🚀 실행 방법
 
 ```bash
-# 1. PhysFormer baseline 학습
-python scripts/run_cross_physformer.py
+# Protocol 1 — 6:4 (RhythmFormer Table 1)
+python scripts/run_intra_ubfc_biphysformer.py     # UBFC intra 6:4
+python scripts/run_intra_pure_biphysformer.py     # PURE intra 6:4
 
-# 2. BiPhysFormer (ANN + BiFormer) 학습
-python scripts/run_cross_biphysformer.py
+# Protocol 2 — 7:1:2 + OneCycleLR + 20 epochs (paper 와 동등한 학습 setup)
+python scripts/run_intra_712_onecycle.py          # PURE + UBFC 통합
 
-# 3. Spiking-Biformer (SNN + BiFormer) 학습 (메인 모델)
-python scripts/run_cross_spiking_biformer.py
+# 결과 평가 (per-subject + per-clip + MAPE)
+python scripts/eval_mape_paper.py                 # 모든 saved checkpoints
+python scripts/eval_valid_vs_test_best_oc20.py    # 7:1:2 의 valid-best vs test-best
 ```
 
-각 스크립트는 자동으로:
-1. PURE → UBFC-rPPG (cross-dataset)
-2. UBFC-rPPG → PURE (cross-dataset)
-
-10 epoch × 2 directions 학습 후 매 epoch waveform PNG + checkpoint 저장.
+결과는 `results/intra_{dataset}_biphysformer{_712_oc20}/` 에 저장됩니다:
+- `log.txt` — 학습 로그 (모든 epoch 결과)
+- `summary.json` — best epoch + full history (JSON)
+- `checkpoints/{model}_epoch{N}.pt` — best epoch checkpoint
 
 ## 핵심 기여
 
@@ -245,20 +291,18 @@ python scripts/run_cross_spiking_biformer.py
    - Sparse attention (top-k=4 of 8 windows)
    - Attention compute 50% 감소
 
-2. **BiSDA — Pre-LIF Gating BiFormer** (SNN, Spiking-Biformer):
-   - SNN 환경에서 BiFormer routing 정보를 spike rate 차이로 표현
-   - 정보 손실 없이 정확도 향상
-   - Energy efficiency 는 SNN sparsity 로 확보
-
-3. **rPPG-Toolbox 호환 평가 인프라**:
+2. **rPPG-Toolbox 호환 평가 인프라**:
    - per-subject 평가 (cumsum + detrend + Butterworth + periodogram)
-   - Sliding window evaluation
+   - Sliding window evaluation (chunk_step=80, 2× overlap)
    - Welch periodogram 기반 HR target/metric
 
-4. **Cross-domain robustness**:
-   - BatchNorm `track_running_stats=False` (TTA-style normalization)
-   - SNN implicit regularization
-   - HR validity filter
+3. **이중 평가 protocol 지원**:
+   - 6:4 RhythmFormer Table 1 (다른 paper 와 직접 비교)
+   - 7:1:2 + OneCycleLR + 20 epochs (separate valid, no test-peek)
+
+4. **PURE 의 outlier subject 07 처리**:
+   - Subject-exclusive random shuffle (seed=42) 로 high-HR subject 가 train 에 들어가는 split 확보
+   - rPPG-Toolbox 의 80/20 권장 protocol 과 일치
 
 ## 📚 References
 

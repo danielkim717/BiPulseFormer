@@ -4,33 +4,72 @@ env/
 venv/
 __pycache__/
 *.pyc
-results/current_status.json
-results/current_status_biphys.json
-results/current_status_phys.json
-results/live_progress.md
-results/live_progress_biphys.md
-results/live_progress_phys.md
-# Model checkpoints (large)
-results/cross_*/checkpoints/
-# Waveform PNG (large, regenerable from checkpoints)
-results/cross_*/waveforms/
+
+# Live progress + status (regenerable runtime files)
+results/current_status*.json
+results/live_progress*.md
 results/periodic_log.txt
 results/tune_log.txt
 results/startup_error.txt
+
+# Run logs
+results/*/run.log
+results/*/run.log.err
+
+# Exclude obsolete result directories (only 6:4 and 7/1/2 OC20 kept)
+results/cross_*/
+results/intra_biphysformer/
+results/intra_pure_biphysformer_712/
+results/intra_pure_biphysformer_712_random/
+results/intra_pure_biphysformer_80_20/
+results/intra_pure_biphysformer_subj_exclusive/
+results/intra_ubfc_biphysformer_712/
+results/intra_ubfc_physformer/
+results/intra_ubfc_spiking/
+results/pretrain_*/
+results/preproc_check/
+
+# Per-epoch waveforms (large, regenerable from checkpoints)
+results/*/waveforms/
+
+# Auxiliary analysis files (one-off diagnostics)
+results/per_clip_evaluation.json
+results/per_clip_eval_log.txt
+results/per_clip_test_best.txt
+results/pure_oc20_analysis.txt
+results/valid_vs_test_oc20.txt
+results/plots/spiking_biformer/
+results/plots/biphysformer/per_subject_intra_PURE_session_split_epoch7.csv
+results/plots/biphysformer/per_subject_intra_PURE_80_20_epoch9.csv
+
+# Big files
 *.avi
-*.png
+*.log
 D:/
 logs/
-*.log
+
 # Paper sources (too large / external)
 paper.pdf
 paper_abs.html
 paper_v4.html
 paper_text.txt
 paper_chunk_*.txt
-# Temporary reference files (PhysFormer / rPPG-Toolbox source files for inspection)
+
+# Temporary files
 tmp_*.py
-results/*/run.log
-results/*/run.log.err
+tmp_*.ipynb
+
 # Scheduled task lock
 .claude/scheduled_tasks.lock
+
+# PNG default-exclude (we'll force-add specific plots)
+*.png
+!results/plots/biphysformer/scatter_*.png
+!results/plots/biphysformer/bland_altman_*.png
+
+# Checkpoint default-exclude — only keep best epoch per training
+results/*/checkpoints/*.pt
+!results/intra_ubfc_biphysformer/checkpoints/UBFC-rPPG_to_UBFC-rPPG_epoch8.pt
+!results/intra_pure_biphysformer/checkpoints/PURE_to_PURE_epoch7.pt
+!results/intra_pure_biphysformer_712_oc20/checkpoints/PURE_epoch11.pt
+!results/intra_ubfc_biphysformer_712_oc20/checkpoints/UBFC-rPPG_epoch10.pt
