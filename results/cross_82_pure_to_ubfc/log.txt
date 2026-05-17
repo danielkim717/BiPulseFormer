@@ -1,0 +1,153 @@
+======================================================================
+[*] PURE -> UBFC-rPPG  (cross 8:2, full target test)
+======================================================================
+  OneCycleLR(max_lr=0.0001, epochs=20)
+  Loss schedule: epoch≤10 a=1.0,b=1.0; epoch>10 a=0.05,b=5.0
+  train clips: 589  (80% of PURE)
+  valid clips: 296  (20% of PURE)
+  test  clips: 929  (ENTIRE UBFC-rPPG)
+  model params: 7380865
+
+[*] Epoch 1/20  alpha=1.0, beta=1.0
+
+Epoch 1/20: Train loss 9.4540  LR=1.04e-05
+  VALID per-clip MAE 16.747  RMSE 21.106  Pearson 0.0924
+  TEST  per-clip MAE 32.227  RMSE 37.407  MAPE 30.952%  Pearson -0.0209  (n_clips=929)
+  TEST  per-subj MAE 34.235  RMSE 38.666  MAPE 32.345%  Pearson -0.0902  sig_P -0.0232  (n_subj=42)
+
+[*] Epoch 2/20  alpha=1.0, beta=1.0
+
+Epoch 2/20: Train loss 9.4378  LR=2.80e-05
+  VALID per-clip MAE 16.129  RMSE 20.249  Pearson 0.1044
+  TEST  per-clip MAE 32.401  RMSE 37.867  MAPE 30.900%  Pearson -0.0545  (n_clips=929)
+  TEST  per-subj MAE 31.557  RMSE 37.020  MAPE 29.356%  Pearson -0.0568  sig_P -0.0236  (n_subj=42)
+
+[*] Epoch 3/20  alpha=1.0, beta=1.0
+
+Epoch 3/20: Train loss 9.3975  LR=5.21e-05
+  VALID per-clip MAE 11.331  RMSE 17.725  Pearson 0.3464
+  TEST  per-clip MAE 35.565  RMSE 42.417  MAPE 33.403%  Pearson -0.1214  (n_clips=929)
+  TEST  per-subj MAE 29.715  RMSE 34.296  MAPE 27.850%  Pearson -0.0165  sig_P -0.0873  (n_subj=42)
+
+[*] Epoch 4/20  alpha=1.0, beta=1.0
+
+Epoch 4/20: Train loss 9.2888  LR=7.61e-05
+  VALID per-clip MAE 6.627  RMSE 14.627  Pearson 0.6009
+  TEST  per-clip MAE 14.638  RMSE 26.335  MAPE 13.397%  Pearson 0.2923  (n_clips=929)
+  TEST  per-subj MAE 13.539  RMSE 24.400  MAPE 12.215%  Pearson 0.3046  sig_P -0.0673  (n_subj=42)
+
+[*] Epoch 5/20  alpha=1.0, beta=1.0
+
+Epoch 5/20: Train loss 9.2172  LR=9.36e-05
+  VALID per-clip MAE 6.414  RMSE 14.169  Pearson 0.6234
+  TEST  per-clip MAE 20.064  RMSE 30.885  MAPE 18.391%  Pearson 0.1453  (n_clips=929)
+  TEST  per-subj MAE 20.445  RMSE 29.401  MAPE 18.312%  Pearson 0.0527  sig_P -0.0323  (n_subj=42)
+
+[*] Epoch 6/20  alpha=1.0, beta=1.0
+
+Epoch 6/20: Train loss 9.1772  LR=1.00e-04
+  VALID per-clip MAE 5.368  RMSE 13.268  Pearson 0.6814
+  TEST  per-clip MAE 11.149  RMSE 22.920  MAPE 10.118%  Pearson 0.3815  (n_clips=929)
+  TEST  per-subj MAE 8.412  RMSE 19.841  MAPE 7.579%  Pearson 0.5067  sig_P 0.0097  (n_subj=42)
+
+[*] Epoch 7/20  alpha=1.0, beta=1.0
+
+Epoch 7/20: Train loss 9.0947  LR=9.87e-05
+  VALID per-clip MAE 6.580  RMSE 14.593  Pearson 0.6023
+  TEST  per-clip MAE 14.259  RMSE 25.785  MAPE 12.931%  Pearson 0.2791  (n_clips=929)
+  TEST  per-subj MAE 12.116  RMSE 21.287  MAPE 10.928%  Pearson 0.4621  sig_P -0.0406  (n_subj=42)
+
+[*] Epoch 8/20  alpha=1.0, beta=1.0
+
+Epoch 8/20: Train loss 8.9875  LR=9.50e-05
+  VALID per-clip MAE 6.200  RMSE 13.817  Pearson 0.6447
+  TEST  per-clip MAE 16.553  RMSE 26.902  MAPE 15.087%  Pearson 0.2430  (n_clips=929)
+  TEST  per-subj MAE 13.267  RMSE 22.663  MAPE 11.842%  Pearson 0.4063  sig_P -0.0536  (n_subj=42)
+
+[*] Epoch 9/20  alpha=1.0, beta=1.0
+
+Epoch 9/20: Train loss 8.8615  LR=8.90e-05
+  VALID per-clip MAE 6.580  RMSE 14.057  Pearson 0.6206
+  TEST  per-clip MAE 17.098  RMSE 27.560  MAPE 15.586%  Pearson 0.2217  (n_clips=929)
+  TEST  per-subj MAE 14.355  RMSE 23.822  MAPE 12.786%  Pearson 0.2971  sig_P -0.0340  (n_subj=42)
+
+[*] Epoch 10/20  alpha=1.0, beta=1.0
+
+Epoch 10/20: Train loss 8.7679  LR=8.11e-05
+  VALID per-clip MAE 6.105  RMSE 13.007  Pearson 0.6757
+  TEST  per-clip MAE 19.149  RMSE 28.639  MAPE 17.472%  Pearson 0.1740  (n_clips=929)
+  TEST  per-subj MAE 19.001  RMSE 27.848  MAPE 17.140%  Pearson 0.1707  sig_P -0.0060  (n_subj=42)
+
+[*] Epoch 11/20  alpha=0.05, beta=5.0
+
+Epoch 11/20: Train loss 42.0177  LR=7.16e-05
+  VALID per-clip MAE 5.749  RMSE 13.443  Pearson 0.6717
+  TEST  per-clip MAE 19.943  RMSE 31.295  MAPE 18.220%  Pearson 0.1393  (n_clips=929)
+  TEST  per-subj MAE 19.169  RMSE 29.947  MAPE 17.260%  Pearson 0.1892  sig_P 0.1176  (n_subj=42)
+
+[*] Epoch 12/20  alpha=0.05, beta=5.0
+
+Epoch 12/20: Train loss 41.9687  LR=6.11e-05
+  VALID per-clip MAE 5.392  RMSE 13.387  Pearson 0.6875
+  TEST  per-clip MAE 27.194  RMSE 37.062  MAPE 24.944%  Pearson -0.0465  (n_clips=929)
+  TEST  per-subj MAE 28.167  RMSE 35.464  MAPE 25.550%  Pearson -0.2109  sig_P 0.1201  (n_subj=42)
+
+[*] Epoch 13/20  alpha=0.05, beta=5.0
+
+Epoch 13/20: Train loss 41.9189  LR=4.99e-05
+  VALID per-clip MAE 5.939  RMSE 14.345  Pearson 0.6403
+  TEST  per-clip MAE 17.287  RMSE 28.272  MAPE 16.375%  Pearson 0.3865  (n_clips=929)
+  TEST  per-subj MAE 17.766  RMSE 29.815  MAPE 16.402%  Pearson 0.3159  sig_P 0.1224  (n_subj=42)
+
+[*] Epoch 14/20  alpha=0.05, beta=5.0
+
+Epoch 14/20: Train loss 41.8810  LR=3.88e-05
+  VALID per-clip MAE 5.416  RMSE 13.318  Pearson 0.6878
+  TEST  per-clip MAE 25.703  RMSE 35.671  MAPE 23.533%  Pearson -0.0059  (n_clips=929)
+  TEST  per-subj MAE 28.167  RMSE 37.954  MAPE 25.163%  Pearson -0.3173  sig_P 0.0505  (n_subj=42)
+
+[*] Epoch 15/20  alpha=0.05, beta=5.0
+
+Epoch 15/20: Train loss 41.8462  LR=2.82e-05
+  VALID per-clip MAE 6.366  RMSE 14.321  Pearson 0.6397
+  TEST  per-clip MAE 26.732  RMSE 35.881  MAPE 24.822%  Pearson 0.0973  (n_clips=929)
+  TEST  per-subj MAE 29.694  RMSE 39.358  MAPE 27.019%  Pearson -0.0642  sig_P -0.0519  (n_subj=42)
+
+[*] Epoch 16/20  alpha=0.05, beta=5.0
+
+Epoch 16/20: Train loss 41.8352  LR=1.88e-05
+  VALID per-clip MAE 6.057  RMSE 14.775  Pearson 0.6153
+  TEST  per-clip MAE 20.995  RMSE 31.118  MAPE 19.918%  Pearson 0.3401  (n_clips=929)
+  TEST  per-subj MAE 23.019  RMSE 33.761  MAPE 21.319%  Pearson 0.2450  sig_P 0.1034  (n_subj=42)
+
+[*] Epoch 17/20  alpha=0.05, beta=5.0
+
+Epoch 17/20: Train loss 41.8160  LR=1.09e-05
+  VALID per-clip MAE 6.984  RMSE 15.390  Pearson 0.5813
+  TEST  per-clip MAE 25.408  RMSE 34.601  MAPE 23.955%  Pearson 0.2312  (n_clips=929)
+  TEST  per-subj MAE 28.397  RMSE 38.204  MAPE 26.145%  Pearson 0.0554  sig_P 0.0508  (n_subj=42)
+
+[*] Epoch 18/20  alpha=0.05, beta=5.0
+
+Epoch 18/20: Train loss 41.8129  LR=4.92e-06
+  VALID per-clip MAE 6.604  RMSE 14.882  Pearson 0.6067
+  TEST  per-clip MAE 25.249  RMSE 34.545  MAPE 23.726%  Pearson 0.2184  (n_clips=929)
+  TEST  per-subj MAE 30.050  RMSE 39.563  MAPE 27.540%  Pearson -0.0375  sig_P 0.0518  (n_subj=42)
+
+[*] Epoch 19/20  alpha=0.05, beta=5.0
+
+Epoch 19/20: Train loss 41.8057  LR=1.24e-06
+  VALID per-clip MAE 6.247  RMSE 14.009  Pearson 0.6490
+  TEST  per-clip MAE 26.611  RMSE 35.737  MAPE 24.870%  Pearson 0.1521  (n_clips=929)
+  TEST  per-subj MAE 29.883  RMSE 39.531  MAPE 27.350%  Pearson -0.0436  sig_P 0.0404  (n_subj=42)
+
+[*] Epoch 20/20  alpha=0.05, beta=5.0
+
+Epoch 20/20: Train loss 41.8041  LR=4.58e-10
+  VALID per-clip MAE 6.414  RMSE 14.169  Pearson 0.6442
+  TEST  per-clip MAE 26.914  RMSE 35.990  MAPE 25.176%  Pearson 0.1509  (n_clips=929)
+  TEST  per-subj MAE 30.029  RMSE 39.542  MAPE 27.518%  Pearson -0.0378  sig_P 0.0418  (n_subj=42)
+
+-> Best for PURE -> UBFC-rPPG: epoch 10  (valid per-clip RMSE 13.007)
+   per-clip  MAE 19.149  RMSE 28.639  MAPE 17.472%  Pearson 0.1740
+   per-subj  MAE 19.001  RMSE 27.848  MAPE 17.140%  Pearson 0.1707

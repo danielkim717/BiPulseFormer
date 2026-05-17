@@ -33,6 +33,35 @@ PhysFormer (Yu et al., CVPR 2022) 의 transformer block 에 **BiFormer (Zhu et a
 
 → UBFC 에서 paper SOTA 압도. PURE 7:1:2 OC20 에서 PhysFormer (1.10) 보다 우수한 MAE 0.769. Pearson 0.96 은 test set 의 좁은 HR 분포 (std 3.79) 영향.
 
+## 📊 Cross-Dataset 결과 (per-subject)
+
+### Setup
+- **Train**: 80% of source dataset (subject-exclusive)
+- **Valid**: 20% of source dataset (best-epoch 선택)
+- **Test**: 100% of target dataset (entire)
+- OneCycleLR(max_lr=1e-4), 20 epochs, α/β schedule (E1-10 1.0/1.0 → E11-20 0.05/5.0)
+
+### Cross 8:2 결과 (VALID-best 기준)
+
+| 방향 | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
+|---|---:|---:|---:|---:|---:|---:|
+| **PURE → UBFC-rPPG** | E10 | 19.001 | 27.848 | 17.140 | 0.1707 | 42 |
+| **UBFC-rPPG → PURE** | E14 | 13.921 | 24.774 | 24.858 | 0.4290 | 59 |
+
+### Paper 비교 (cross-dataset)
+
+| 모델 | PURE→UBFC MAE | PURE→UBFC ρ | UBFC→PURE MAE | UBFC→PURE ρ |
+|---|---:|---:|---:|---:|
+| PhysNet (CVPR'20) | 8.06 | 0.66 | 9.74 | 0.85 |
+| PhysFormer (CVPR'22) | 1.44 | 0.98 | 3.34 | 0.97 |
+| RhythmFormer (PR'25) | 1.21 | 0.99 | 4.45 | 0.97 |
+| **BiPulseFormer cross 8:2 (우리)** | **19.001** | **0.171** | **13.921** | **0.429** |
+
+→ Cross-dataset 평가는 paper 미달. 원인:
+1. PURE 8 subjects 만 학습 (paper 는 더 큰 multi-dataset 사용)
+2. α/β schedule freq-strong phase (E11+) 가 source-overfit 야기
+3. BiFormer sparse routing 의 cross-domain 일반화 한계
+
 ## 🏗️ Architecture
 
 ### 1. PhysFormer Baseline (Yu et al., CVPR 2022)
@@ -133,6 +162,26 @@ out = softmax(scores) @ v_top
 ## 📂 코드 구조
 <img width="645" height="273" alt="image" src="https://github.com/user-attachments/assets/02a09530-d4c2-4b0d-836c-1216f9390972" />
 
+```
+src/
+  models/
+    physformer_baseline.py      # PhysFormer (CVPR 2022) 공식 코드 포팅
+    bipulseformer.py            # PhysFormer + BiLevel Routing Attention (ANN)
+  data/
+    rppg_dataset.py             # PURE/UBFC-rPPG dataset
+                                #   PURE split modes: subject_exclusive (default),
+                                #     subject_exclusive_random (seed=42),
+                                #     session_per_subject
+  evaluation.py                 # rPPG-Toolbox per-subject 평가 (paper-comparable)
+  evaluation_per_clip.py        # per-clip 보조 평가 (5.3s clip)
+  train.py                      # NegPearsonLoss + FrequencyLoss (DLDL_softmax2)
+scripts/
+  run_intra_ubfc_bipulseformer.py        # UBFC 6:4 (RhythmFormer protocol) 학습
+  run_intra_712_onecycle.py              # 7:1:2 OneCycleLR 20ep (PURE+UBFC 통합)
+  run_cross_82_bipulseformer.py          # Cross 8:2 (PURE↔UBFC 양방향)
+  eval_mape_paper.py                      # per-subject MAPE 계산
+  eval_valid_vs_test_best_oc20.py        # valid-best vs test-best epoch 비교
+```
 
 ## 🚀 실행 방법
 
@@ -142,6 +191,9 @@ python scripts/run_intra_ubfc_bipulseformer.py        # UBFC intra 6:4
 
 # Protocol 2 — 7:1:2 + OneCycleLR + 20 epochs (paper 와 동등한 학습 setup)
 python scripts/run_intra_712_onecycle.py              # PURE + UBFC 통합
+
+# Cross 8:2 — Train on 80% source, valid 20% source, test 100% target
+python scripts/run_cross_82_bipulseformer.py          # PURE↔UBFC 양방향
 
 # 결과 평가 (per-subject + per-clip + MAPE)
 python scripts/eval_mape_paper.py                     # 모든 saved checkpoints
