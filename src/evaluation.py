@@ -1,5 +1,5 @@
 """
-rPPG-Toolbox 호환 cross-dataset 평가 — paper level (MAE 1.44, ρ 0.98) 재현용.
+rPPG-Toolbox 호환 per-subject 평가 — paper-comparable metric 재현용.
 
 차이 (per-clip 평가 → per-subject 평가):
   - rPPG-Toolbox: 모든 clip 을 subject 별로 concat (5sec×11 = ~60sec) → 한 번에 HR 추정

@@ -1,5 +1,5 @@
 """
-Cross-dataset 학습-평가 — BiPhysFormer (PhysFormer + BiLevel Routing, ANN).
+Intra-dataset 학습-평가 — BiPhysFormer (PhysFormer + BiLevel Routing, ANN).
 
 PhysFormer 공식 학습 셋업을 그대로 따름
 (https://github.com/ZitongYu/PhysFormer/blob/main/train_Physformer_160_VIPL.py):
@@ -14,12 +14,12 @@ PhysFormer 공식 학습 셋업을 그대로 따름
         α = 0.1 (공식 코드는 epoch>25 일 때만 0.05; 우리는 25 epoch 학습이라 항상 0.1)
         β = β₀ · η^(epoch/25),  β₀=1.0, η=5.0  (공식 schedule)
   - gra_sharp = 2.0 (forward 인자)
-  - Best 기준: source valid per-clip Pearson
+  - Best 기준: valid per-clip Pearson
   - HR metric: 2nd-order Butterworth (0.75-2.5 Hz) + FFT peak
 
-순차 실행:
-  1) PURE → UBFC-rPPG  (25 epoch)
-  2) UBFC-rPPG → PURE  (25 epoch)
+순차 실행 (intra-dataset):
+  1) PURE → PURE  (25 epoch)
+  2) UBFC-rPPG → UBFC-rPPG  (25 epoch)
 """
 import os
 import sys
@@ -196,7 +196,7 @@ def _save_status(d):
 
 def _live(now, status):
     lines = [
-        '# 📊 BiPhysFormer (ANN, BiFormer) — Cross-Dataset',
+        '# 📊 BiPhysFormer (ANN, BiFormer) — Intra-Dataset',
         '',
         f"**마지막 업데이트**: {now.strftime('%Y-%m-%d %H:%M:%S')}",
         '',
