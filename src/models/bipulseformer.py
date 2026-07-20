@@ -126,8 +126,17 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         Return: (h, scores) ??scores ??region routing 寃곌낵 (B, S, S) 濡?諛섑솚."""
         B, P, C = x.shape
         # PhysFormer ?먮낯? P = 16*t (h=w=4) 濡?reshape ???곕━???숈씪.
+        assert P % 16 == 0, (
+            f"BiLevelRoutingAttention_TDC_gra_sharp assumes a fixed H=W=4 patch "
+            f"grid (P=16*t, set by image_size/patches). Got P={P}, not divisible "
+            f"by 16."
+        )
         x_3d = x.transpose(1, 2).view(B, C, P // 16, 4, 4)
         t, h, w = P // 16, 4, 4
+        wt, wh, ww = self.n_win
+        assert t % wt == 0 and h % wh == 0 and w % ww == 0, (
+            f"n_win={self.n_win} does not evenly divide (t,h,w)=({t},{h},{w})."
+        )
 
         q_3d = self.proj_q(x_3d)
         k_3d = self.proj_k(x_3d)
@@ -368,19 +377,3 @@ class ViT_BiPulseFormer(nn.Module):
         features_last = torch.mean(features_last, 3)
         rPPG = self.ConvBlockLast(features_last).squeeze(1)
         return rPPG, S1, S2, S3
-
-    def load_pretrained_pe(self, path):
-        """Optional: load Stem0/1/2 + patch_embedding weights."""
-        sd = torch.load(path, map_location='cpu')
-        own_sd = self.state_dict()
-        loaded = 0
-        for k, v in sd.items():
-            if k in own_sd and own_sd[k].shape == v.shape:
-                own_sd[k] = v
-                loaded += 1
-        self.load_state_dict(own_sd)
-        print(f"[BiPulseFormer] Loaded pretrained PE: {loaded} tensors from {path}")
-
-
-# Backward-compat alias (older training scripts import BiPulseFormer)
-BiPulseFormer = ViT_BiPulseFormer

@@ -266,16 +266,3 @@ class ViT_ST_ST_Compact3_TDC_gra_sharp(nn.Module):
         features_last = torch.mean(features_last, 3)
         rPPG = self.ConvBlockLast(features_last).squeeze(1)
         return rPPG, S1, S2, S3
-
-    def export_pe_state_dict(self):
-        """Stem0/1/2 + patch_embedding state_dict (PE pretraining ??."""
-        sd = {}
-        for prefix in ['Stem0', 'Stem1', 'Stem2', 'patch_embedding']:
-            module = getattr(self, prefix)
-            for k, v in module.state_dict().items():
-                sd[f'{prefix}.{k}'] = v.clone().detach()
-        return sd
-
-
-# Backward-compat alias
-PhysFormer = ViT_ST_ST_Compact3_TDC_gra_sharp

@@ -140,6 +140,14 @@ class RPPGDataset(Dataset):
         return img[y0:y1, x0:x1]
 
     def _prepare_data(self):
+        if self.dataset_name not in ('PURE', 'UBFC-rPPG'):
+            raise ValueError(
+                f"지원하지 않는 dataset_name: {self.dataset_name!r} "
+                f"(PURE 또는 UBFC-rPPG 만 지원)"
+            )
+        if not os.path.isdir(self.root_dir):
+            raise FileNotFoundError(f"root_dir 이 존재하지 않습니다: {self.root_dir}")
+
         print(f"[Dataset] 준비 중: {self.dataset_name} at {self.root_dir} "
               f"(data_type={self.data_type}, dyn_freq={self.dynamic_detection_freq})")
 
@@ -290,6 +298,12 @@ class RPPGDataset(Dataset):
                             })
 
         print(f"[Dataset] {self.dataset_name} 샘플 생성 완료: 총 {len(self.samples)} 클립 (chunk_step={self.chunk_step})")
+        if len(self.samples) == 0:
+            raise RuntimeError(
+                f"[Dataset] {self.dataset_name} 에서 클립을 하나도 만들지 못했습니다. "
+                f"root_dir={self.root_dir}, split_range={self.split_range}, "
+                f"subjects_filter={self.subjects_filter} 를 확인하세요."
+            )
 
         # HR validity filter (PhysBench/rPPG-Toolbox trick: 40 < HR < 180 BPM 만 유지)
         if self.hr_filter:
@@ -313,6 +327,11 @@ class RPPGDataset(Dataset):
             self.samples = kept
             print(f"[Dataset] HR filter (40<HR<180): {n_before} → {len(self.samples)} clips "
                   f"({100 * len(self.samples) / max(1, n_before):.1f}% 유지)")
+            if len(self.samples) == 0:
+                raise RuntimeError(
+                    f"[Dataset] HR filter (40<HR<180) 적용 후 {self.dataset_name} 클립이 "
+                    f"0개가 되었습니다. hr_filter 조건 또는 데이터를 확인하세요."
+                )
 
         if self.face_crop and self.face_detection_backend == 'HC':
             self._predetect_faces()

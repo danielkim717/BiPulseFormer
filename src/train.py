@@ -91,7 +91,11 @@ def cross_entropy_power_spectrum_DLDL_softmax2(rppg, target_hr_bpm, fps, std=1.0
     """
     device = rppg.device
     target = target_hr_bpm.view(1, -1) if target_hr_bpm.dim() == 0 else target_hr_bpm.view(1, -1)
-    int_target = int(target_hr_bpm.item())
+    # HR 라벨이 [bpm_low, bpm_high) 범위를 벗어나면 (예: hr_filter 미적용 데이터,
+    # Welch 추정 오류) target_idx 가 음수/초과 인덱스가 되어 F.cross_entropy 가
+    # 크래시한다. bin 경계로 clamp 해서 방어.
+    target = target.clamp(min=float(bpm_low), max=float(bpm_high) - 1.0)
+    int_target = int(target.item())
 
     # target_distribution: Gaussian centered at HR_BPM over bins [40, 180) BPM (140 bins)
     target_dist = [_normal_sampling(int_target, i, std) for i in range(bpm_low, bpm_high)]

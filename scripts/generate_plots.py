@@ -1,8 +1,8 @@
-"""BiPhysFormer best checkpoint 로 scatter plot + Bland-Altman 생성.
+"""BiPulseFormer best checkpoint 로 scatter plot + Bland-Altman 생성.
 
 Usage:
-    python scripts/generate_plots.py --direction PURE_to_UBFC-rPPG --epoch 4
-    python scripts/generate_plots.py --direction UBFC-rPPG_to_PURE --epoch 7
+    python scripts/generate_plots.py --ckpt results/intra_pure_bipulseformer/checkpoints/PURE_to_PURE_epoch7.pt \
+        --test_dataset PURE --split_range 0.6,1.0 --name intra_PURE_epoch7
 """
 import os
 import sys
@@ -20,7 +20,7 @@ except Exception:
     pass
 
 import torch
-from src.models.biphysformer import ViT_BiPhysFormer
+from src.models.bipulseformer import ViT_BiPulseFormer
 from src.data.rppg_dataset import get_dataloader
 from src.evaluation import get_subject_signals
 
@@ -34,17 +34,17 @@ def main():
     parser.add_argument('--test_path', type=str, default=None,
                         help='Override test path (default: D:\\PURE or D:\\UBFC-rPPG)')
     parser.add_argument('--split_range', type=str, default=None,
-                        help='e.g. "0.6,1.0" for intra-dataset test set; omit for cross-dataset')
+                        help='e.g. "0.6,1.0" for intra-dataset test set')
     parser.add_argument('--name', type=str, required=True,
                         help='Plot filename prefix (e.g. intra_PURE_epoch9)')
-    parser.add_argument('--out_dir', type=str, default='results/plots/biphysformer')
+    parser.add_argument('--out_dir', type=str, default='results/plots/bipulseformer')
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print(f'Loading {args.ckpt}')
-    model = ViT_BiPhysFormer(
+    model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
         n_win=(2, 2, 2), topk=4,
@@ -117,7 +117,7 @@ def main():
     ax.set_ylim(lim_min, lim_max)
     ax.set_xlabel('Ground Truth HR (BPM)', fontsize=12)
     ax.set_ylabel('Predicted HR (BPM)', fontsize=12)
-    ax.set_title(f'BiPhysFormer — {args.name}\n'
+    ax.set_title(f'BiPulseFormer — {args.name}\n'
                  f'MAE={mae:.2f}, RMSE={rmse:.2f}, MAPE={mape:.2f}%, ρ={pearson:.3f}',
                  fontsize=11)
     ax.grid(alpha=0.3)
