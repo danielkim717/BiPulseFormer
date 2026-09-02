@@ -5,8 +5,8 @@ Cross-dataset 학습-평가 — PhysFormer baseline (no BiFormer, full MHSA atte
        (PURE→UBFC MAE=1.44 ρ=0.98, UBFC→PURE MAE=12.92 ρ=0.47) 재현 가능 여부 확인.
        우리 학습 setup이 paper level 도달 가능한지 검증.
 
-학습 셋업: rPPG-Toolbox PhysFormerTrainer 와 100% 동일 (run_cross_biphysformer.py 와 같음).
-모델만 ViT_BiPhysFormer (BiFormer) → ViT_ST_ST_Compact3_TDC_gra_sharp (full MHSA) 교체.
+학습 셋업: rPPG-Toolbox PhysFormerTrainer 와 100% 동일 (run_cross_82_*.py 계열과 같음).
+모델만 ViT_BiPulseFormer (BiFormer) → ViT_ST_ST_Compact3_TDC_gra_sharp (full MHSA) 교체.
 
 순차 실행:
   1) PURE → UBFC-rPPG  (30 epoch)

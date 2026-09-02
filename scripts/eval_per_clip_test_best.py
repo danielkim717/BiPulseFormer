@@ -11,14 +11,14 @@ except Exception:
 
 import numpy as np
 import torch
-from src.models.biphysformer import ViT_BiPhysFormer
+from src.models.bipulseformer import ViT_BiPulseFormer
 from src.data.rppg_dataset import get_dataloader
 from src.evaluation import evaluate_per_subject
 from src.evaluation_per_clip import evaluate_per_clip
 
 
 def load_model(ckpt_path, device):
-    model = ViT_BiPhysFormer(
+    model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
         n_win=(2, 2, 2), topk=4,

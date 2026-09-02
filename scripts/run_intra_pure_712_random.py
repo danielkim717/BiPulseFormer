@@ -1,4 +1,4 @@
-"""BiPhysFormer PURE intra 7/1/2 — RANDOM subject assignment (seed=42).
+"""BiPulseFormer PURE intra 7/1/2 — RANDOM subject assignment (seed=42).
 
 이전 sort-based 와 달리 subject 07 (high-HR outlier) 위치가 다름:
   TRAIN (0.0-0.7): subjects 03,04,06,07,08,09,10  (subject 07 train 포함)
@@ -19,7 +19,7 @@ import torch
 import torch.optim as optim
 from scipy.signal import welch
 
-from src.models.biphysformer import ViT_BiPhysFormer
+from src.models.bipulseformer import ViT_BiPulseFormer
 from src.data.rppg_dataset import get_dataloader
 from src.train import NegPearsonLoss, FrequencyLoss
 from src.evaluation import evaluate_per_subject, get_subject_signals
@@ -120,7 +120,7 @@ def main():
     log(f"  valid clips: {len(valid_loader.dataset)} (10%)")
     log(f"  test  clips: {len(test_loader.dataset)} (20%)")
 
-    model = ViT_BiPhysFormer(
+    model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
         n_win=(2, 2, 2), topk=4,

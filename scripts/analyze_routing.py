@@ -77,13 +77,15 @@ class RoutingCapture:
                     self.layer_idx += 1
 
     def _make_hook(self, layer_idx, stage):
-        captures = self.captures
         def hook(module, inputs, output):
             # output: (h_out, a_r)  where a_r = (B, S, S) region routing scores
             a_r = output[1]
             topk = min(module.topk, a_r.shape[-1])
             _, topk_idx = torch.topk(a_r, k=topk, dim=-1)   # (B, S, topk)
-            captures.append({
+            # NOTE: append via self.captures (not a cached local alias) so this hook
+            # keeps working correctly if reset() is ever called mid-run (see the
+            # identical bug found & fixed in visualize_routing_faces.py).
+            self.captures.append({
                 'layer': layer_idx, 'stage': stage,
                 'topk_idx': topk_idx.detach().cpu().numpy(),
                 'scores': a_r.detach().cpu().numpy(),

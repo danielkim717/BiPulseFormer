@@ -3,7 +3,7 @@ Cross-dataset 학습-평가 — BiPhysFormer (PhysFormer + BiLevel Routing, ANN)
 
 PhysFormer 공식 학습 셋업을 그대로 따름
 (https://github.com/ZitongYu/PhysFormer/blob/main/train_Physformer_160_VIPL.py):
-  - 모델: ViT_BiPhysFormer(dim=96, ff_dim=144, num_heads=4, num_layers=12,
+  - 모델: ViT_BiPulseFormer(dim=96, ff_dim=144, num_heads=4, num_layers=12,
                           dropout=0.1, theta=0.7, n_win=(2,2,2), topk=4)
   - Optimizer: Adam(lr=1e-4, wd=5e-5)
   - LR scheduler: StepLR(step_size=50, gamma=0.5)  (25 epoch 동안 사실상 constant)
@@ -45,7 +45,7 @@ import torch
 import torch.optim as optim
 from scipy.signal import welch
 
-from src.models.biphysformer import ViT_BiPhysFormer
+from src.models.bipulseformer import ViT_BiPulseFormer
 from src.data.rppg_dataset import get_dataloader
 from src.train import NegPearsonLoss, FrequencyLoss
 from src.evaluation import evaluate_per_subject, get_subject_signals
@@ -268,7 +268,7 @@ def run_experiment(train_name, train_path, test_name, test_path):
     log(f"  valid clips: {len(valid_loader.dataset)} (60-80%) - best-epoch selection")
     log(f"  test  clips: {len(test_loader.dataset)} (80-100% of {test_name}) - intra-dataset")
 
-    model = ViT_BiPhysFormer(
+    model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
         n_win=(2, 2, 2), topk=4,

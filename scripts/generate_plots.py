@@ -1,4 +1,4 @@
-"""BiPhysFormer best checkpoint 로 scatter plot + Bland-Altman 생성.
+"""BiPulseFormer best checkpoint 로 scatter plot + Bland-Altman 생성.
 
 Usage:
     python scripts/generate_plots.py --direction PURE_to_UBFC-rPPG --epoch 4
@@ -20,7 +20,7 @@ except Exception:
     pass
 
 import torch
-from src.models.biphysformer import ViT_BiPhysFormer
+from src.models.bipulseformer import ViT_BiPulseFormer
 from src.data.rppg_dataset import get_dataloader
 from src.evaluation import get_subject_signals
 
@@ -44,7 +44,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print(f'Loading {args.ckpt}')
-    model = ViT_BiPhysFormer(
+    model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
         n_win=(2, 2, 2), topk=4,
