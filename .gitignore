@@ -80,6 +80,7 @@ tmp_*.ipynb
 *.png
 !results/plots/bipulseformer/scatter_*.png
 !results/plots/bipulseformer/bland_altman_*.png
+!results/routing_face_viz/**/*.png
 
 # Checkpoint default-exclude — only keep best epoch per training
 results/*/checkpoints/*.pt

@@ -1,0 +1,37 @@
+{
+  "ckpt": "results\\cross_82_pure_to_ubfc_steplr15\\checkpoints\\PURE_to_UBFC-rPPG_epoch3.pt",
+  "dataset": "UBFC-rPPG",
+  "n_win": [
+    2,
+    2,
+    2
+  ],
+  "topk": 4,
+  "routing_mode": "mean",
+  "n_clips": 8,
+  "clip_indices": [
+    0,
+    116,
+    232,
+    348,
+    464,
+    580,
+    696,
+    812
+  ],
+  "avg_grid": [
+    [
+      0.22330729166666666,
+      0.27701822916666663
+    ],
+    [
+      0.20768229166666669,
+      0.2919921875
+    ]
+  ],
+  "row_band_ratio": {
+    "forehead/hairline": 0.5003255208333333,
+    "mouth/chin": 0.4996744791666667
+  },
+  "top_region": "mouth/chin"
+}
