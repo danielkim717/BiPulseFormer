@@ -78,9 +78,25 @@ def merge_last(x, n_dims):
 #   - ?댄뀗???대?留?BiLevel Routing ?쇰줈 援먯껜.
 # =============================================================================
 class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
-    """BiFormer-style BRA, drop-in for PhysFormer MHSA_TDC_gra_sharp."""
+    """BiFormer-style BRA, drop-in for PhysFormer MHSA_TDC_gra_sharp.
+
+    routing_mode:
+      - 'mean': window mean embedding (default, BiFormer paper)
+      - 'fft_power': HR-band (0.7-3 Hz) FFT power per window — Phase 2 개선
+                     rPPG 신호 강도가 강한 region을 선택하도록 routing
+
+    diff_routing (STE):
+      Hard top-k(torch.topk)는 미분 불가능해 proj_q/proj_k가 "어떤 region을
+      골라야 하는지"에 대한 gradient를 받지 못하고, content-attention 경로로만
+      간접 학습된다 (routing_analysis 실측 결과 self/same-quadrant/top-half 비율이
+      모두 random 수준). diff_routing=True(default) + self.training 시,
+      forward 값은 기존 hard top-k와 동일하게 유지하되 backward gradient만
+      softmax(a_r/routing_tau)로 흘려보내는 straight-through estimator 사용.
+      eval() 시에는 항상 기존 gather 기반 sparse 경로 (체크포인트 호환 + 속도).
+    """
     def __init__(self, dim, num_heads, dropout, theta,
-                 n_win=(2, 2, 2), topk=4):
+                 n_win=(2, 2, 2), topk=4, routing_mode='mean', fps=30,
+                 diff_routing=True, routing_tau=0.5):
         super().__init__()
         self.proj_q = nn.Sequential(
             CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
@@ -98,7 +114,11 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         self.dim = dim
         self.n_win = n_win
         self.topk = topk
-        self.scores = None  # for visualization (PhysFormer ?먮낯 ?명솚)
+        self.routing_mode = routing_mode
+        self.fps = fps
+        self.diff_routing = diff_routing
+        self.routing_tau = routing_tau
+        self.scores = None  # for visualization
 
     def _window_partition(self, feat_3d, t, h, w):
         """feat_3d: (B, C, t, h, w) ??(B, S, win, C),  S=?n_win, win=?len."""
@@ -110,6 +130,28 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         S = wt * wh * ww
         win = lt * lh * lw
         return feat.view(B, S, win, C), (lt, lh, lw)
+
+    def _fft_power_region(self, feat_w, lt, lh, lw):
+        """Phase 2: HR-band (0.7-3 Hz) FFT power per window.
+
+        feat_w: (B, S, win=lt*lh*lw, C) → (B, S, C) HR-band power embedding.
+        rPPG 신호 강도가 강한 region이 routing source/target으로 선택되도록.
+        """
+        B, S, win, C = feat_w.shape
+        # Reshape to separate temporal/spatial inside window
+        feat = feat_w.view(B, S, lt, lh * lw, C)
+        # Spatial mean within window → (B, S, lt, C)
+        feat_t = feat.mean(dim=3)
+        # Temporal FFT along lt → (B, S, lt//2+1, C)
+        fft = torch.fft.rfft(feat_t, dim=2).abs()
+        # HR band mask (0.7-3.0 Hz)
+        freqs = torch.fft.rfftfreq(lt, 1.0 / self.fps).to(feat_w.device)
+        hr_mask = (freqs >= 0.7) & (freqs <= 3.0)
+        if hr_mask.sum() == 0:
+            # Window too short → fallback to mean
+            return feat_w.mean(dim=2)
+        # Mean power in HR band → (B, S, C)
+        return fft[:, :, hr_mask].mean(dim=2)
 
     def _window_reverse(self, x_w, t, h, w, lt, lh, lw):
         """(B, S, win, C) ??(B, t*h*w, C)."""
@@ -141,32 +183,65 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         win = q_w.shape[2]
 
         # Region routing
-        q_r = q_w.mean(dim=2)                                       # (B, S, C)
-        k_r = k_w.mean(dim=2)
+        if self.routing_mode == 'fft_power':
+            # Phase 2: HR-band FFT power per window
+            q_r = self._fft_power_region(q_w, lt, lh, lw)
+            k_r = self._fft_power_region(k_w, lt, lh, lw)
+        else:
+            # Default: window mean
+            q_r = q_w.mean(dim=2)                                   # (B, S, C)
+            k_r = k_w.mean(dim=2)
         a_r = q_r @ k_r.transpose(-2, -1) / math.sqrt(C)            # (B, S, S)
         topk = min(self.topk, S)
-        _, topk_idx = torch.topk(a_r, k=topk, dim=-1)               # (B, S, topk)
-
-        # Gather K, V from top-k routed windows for each query window
-        idx = topk_idx.view(B, S, topk, 1, 1).expand(B, S, topk, win, C)
-        k_src = k_w.unsqueeze(1).expand(B, S, S, win, C)
-        v_src = v_w.unsqueeze(1).expand(B, S, S, win, C)
-        k_g = torch.gather(k_src, 2, idx).view(B, S, topk * win, C)  # (B, S, k*win, C)
-        v_g = torch.gather(v_src, 2, idx).view(B, S, topk * win, C)
-
-        # Multi-head sparse attention within each query window
         H = self.n_heads
         d = C // H
-        q_h = q_w.view(B, S, win, H, d).permute(0, 1, 3, 2, 4)             # (B, S, H, win, d)
-        k_h = k_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)      # (B, S, H, k*win, d)
-        v_h = v_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)
-        # PhysFormer recipe: scores = q @ k.T / gra_sharp  (NOT /sqrt(d))
-        scores = (q_h @ k_h.transpose(-2, -1)) / gra_sharp                  # (B, S, H, win, k*win)
-        scores = self.drop(F.softmax(scores, dim=-1))
-        out = scores @ v_h                                                  # (B, S, H, win, d)
 
-        # Merge heads + window-reverse
-        out = out.permute(0, 1, 3, 2, 4).contiguous().view(B, S, win, C)    # (B, S, win, C)
+        if self.diff_routing and self.training:
+            # STE differentiable routing: forward == hard top-k (below), backward ==
+            # gradient of softmax(a_r/tau). Computed as dense attention over ALL S
+            # key-windows (not just gathered top-k) with a region-level gate, so the
+            # gate tensor participates in the graph the same way for every window.
+            _, topk_idx = torch.topk(a_r, k=topk, dim=-1)
+            mask_hard = torch.zeros_like(a_r).scatter_(-1, topk_idx, 1.0)   # (B, S, S), no grad
+            mask_soft = F.softmax(a_r / self.routing_tau, dim=-1)
+            gate = mask_hard + mask_soft - mask_soft.detach()               # STE: fwd=hard, bwd=soft
+
+            def split_heads(t_):
+                return t_.view(B, S * win, H, d).permute(0, 2, 1, 3)        # (B, H, P, d)
+            q_h = split_heads(q_w.reshape(B, S * win, C))
+            k_h = split_heads(k_w.reshape(B, S * win, C))
+            v_h = split_heads(v_w.reshape(B, S * win, C))
+            scores = (q_h @ k_h.transpose(-2, -1)) / gra_sharp             # (B, H, P, P)
+            attn = F.softmax(scores, dim=-1)                               # dense softmax over ALL P keys
+            gate_tok = gate.repeat_interleave(win, dim=1).repeat_interleave(win, dim=2)  # (B, P, P)
+            # mask + renormalize == softmax restricted to the routed keys only (same
+            # numerics as the sparse-gather branch below), but the gate multiplies
+            # attn probabilities directly instead of a huge pre-softmax additive bias
+            # — keeps the STE gradient into a_r on a sane, bounded scale.
+            attn = attn * gate_tok.unsqueeze(1)                            # (B, H, P, P)
+            attn = attn / (attn.sum(dim=-1, keepdim=True) + 1e-9)
+            scores = self.drop(attn)
+            out = scores @ v_h                                             # (B, H, P, d)
+            out = out.permute(0, 2, 1, 3).reshape(B, S, win, C)            # back to window-partitioned
+        else:
+            # Efficient sparse path (eval / diff_routing=False): gather K, V from
+            # top-k routed windows only — identical numerics to the branch above.
+            _, topk_idx = torch.topk(a_r, k=topk, dim=-1)               # (B, S, topk)
+            idx = topk_idx.view(B, S, topk, 1, 1).expand(B, S, topk, win, C)
+            k_src = k_w.unsqueeze(1).expand(B, S, S, win, C)
+            v_src = v_w.unsqueeze(1).expand(B, S, S, win, C)
+            k_g = torch.gather(k_src, 2, idx).view(B, S, topk * win, C)  # (B, S, k*win, C)
+            v_g = torch.gather(v_src, 2, idx).view(B, S, topk * win, C)
+
+            q_h = q_w.view(B, S, win, H, d).permute(0, 1, 3, 2, 4)             # (B, S, H, win, d)
+            k_h = k_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)      # (B, S, H, k*win, d)
+            v_h = v_g.view(B, S, topk * win, H, d).permute(0, 1, 3, 2, 4)
+            # PhysFormer recipe: scores = q @ k.T / gra_sharp  (NOT /sqrt(d))
+            scores = (q_h @ k_h.transpose(-2, -1)) / gra_sharp                  # (B, S, H, win, k*win)
+            scores = self.drop(F.softmax(scores, dim=-1))
+            out = scores @ v_h                                                  # (B, S, H, win, d)
+            out = out.permute(0, 1, 3, 2, 4).contiguous().view(B, S, win, C)    # (B, S, win, C)
+
         h_out = self._window_reverse(out, t, h, w, lt, lh, lw)              # (B, P, C)
         # Score (region routing) for visualization compatibility
         self.scores = a_r
@@ -208,12 +283,15 @@ class PositionWiseFeedForward_ST(nn.Module):
 # Block_ST_TDC_gra_sharp_Bi ??PhysFormer ?먮낯 Block ?먯꽌 attn 留?BRA 濡?援먯껜
 # =============================================================================
 class Block_ST_TDC_gra_sharp_Bi(nn.Module):
-    """Transformer Block (BiLevel Routing Attention ?곸슜)."""
+    """Transformer Block (BiLevel Routing Attention 적용)."""
     def __init__(self, dim, num_heads, ff_dim, dropout, theta,
-                 n_win=(2, 2, 2), topk=4):
+                 n_win=(2, 2, 2), topk=4, routing_mode='mean', fps=30,
+                 diff_routing=True, routing_tau=0.5):
         super().__init__()
         self.attn = BiLevelRoutingAttention_TDC_gra_sharp(
-            dim, num_heads, dropout, theta, n_win=n_win, topk=topk
+            dim, num_heads, dropout, theta, n_win=n_win, topk=topk,
+            routing_mode=routing_mode, fps=fps,
+            diff_routing=diff_routing, routing_tau=routing_tau,
         )
         self.proj = nn.Linear(dim, dim)
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
@@ -236,11 +314,14 @@ class Block_ST_TDC_gra_sharp_Bi(nn.Module):
 # =============================================================================
 class Transformer_ST_TDC_gra_sharp_Bi(nn.Module):
     def __init__(self, num_layers, dim, num_heads, ff_dim, dropout, theta,
-                 n_win=(2, 2, 2), topk=4):
+                 n_win=(2, 2, 2), topk=4, routing_mode='mean', fps=30,
+                 diff_routing=True, routing_tau=0.5):
         super().__init__()
         self.blocks = nn.ModuleList([
             Block_ST_TDC_gra_sharp_Bi(dim, num_heads, ff_dim, dropout, theta,
-                                      n_win=n_win, topk=topk)
+                                      n_win=n_win, topk=topk,
+                                      routing_mode=routing_mode, fps=fps,
+                                      diff_routing=diff_routing, routing_tau=routing_tau)
             for _ in range(num_layers)
         ])
 
@@ -277,6 +358,10 @@ class ViT_BiPulseFormer(nn.Module):
         image_size=(160, 128, 128),
         n_win=(2, 2, 2),
         topk: int = 4,
+        routing_mode: str = 'mean',
+        fps: int = 30,
+        diff_routing: bool = True,
+        routing_tau: float = 0.5,
     ):
         super().__init__()
         self.image_size = image_size
@@ -289,17 +374,20 @@ class ViT_BiPulseFormer(nn.Module):
         self.transformer1 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
-            n_win=n_win, topk=topk,
+            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=fps,
+            diff_routing=diff_routing, routing_tau=routing_tau,
         )
         self.transformer2 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
-            n_win=n_win, topk=topk,
+            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=fps,
+            diff_routing=diff_routing, routing_tau=routing_tau,
         )
         self.transformer3 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
-            n_win=n_win, topk=topk,
+            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=fps,
+            diff_routing=diff_routing, routing_tau=routing_tau,
         )
 
         self.Stem0 = nn.Sequential(

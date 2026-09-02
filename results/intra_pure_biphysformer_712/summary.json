@@ -1,0 +1,311 @@
+{
+  "name": "PURE",
+  "split": "7/1/2 subject-exclusive (separate valid)",
+  "best": {
+    "MAE_bpm": 1.611328125,
+    "RMSE_bpm": 2.8423253777244515,
+    "MAPE_pct": 2.059284629256566,
+    "Pearson": 0.9912648244676758,
+    "signal_Pearson": 0.30655132014134673,
+    "n_subjects": 12,
+    "Pearson_pooled": 0.17512200246555043,
+    "Pearson_per_clip": 0.1751889226575873,
+    "MAE_sample": 0.9827154874801636,
+    "RMSE_sample": 1.2806540727615356
+  },
+  "best_valid": {
+    "MAE_bpm": 0.439453125,
+    "RMSE_bpm": 0.5673315448546021,
+    "MAPE_pct": 0.8377213487200939,
+    "Pearson": 0.996658303103068,
+    "signal_Pearson": 0.34384462208749533,
+    "n_subjects": 6,
+    "Pearson_pooled": 0.22494454658216492,
+    "Pearson_per_clip": 0.2250734343964221,
+    "MAE_sample": 0.9373993873596191,
+    "RMSE_sample": 1.2414947748184204
+  },
+  "best_epoch": 2,
+  "history": [
+    {
+      "epoch": 1,
+      "avg_loss": 9.420791357755661,
+      "valid": {
+        "MAE_bpm": 3.955078125,
+        "RMSE_bpm": 6.75577298296887,
+        "MAPE_pct": 7.214532942922992,
+        "Pearson": 0.77903099236868,
+        "signal_Pearson": 0.24462972306901398,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.13102590164300706,
+        "Pearson_per_clip": 0.1311009746430249,
+        "MAE_sample": 0.9643611907958984,
+        "RMSE_sample": 1.3145643472671509
+      },
+      "test": {
+        "MAE_bpm": 9.48486328125,
+        "RMSE_bpm": 15.963604809219747,
+        "MAPE_pct": 18.67286553663741,
+        "Pearson": 0.6280320772567706,
+        "signal_Pearson": 0.23518138314628,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.10660860581329269,
+        "Pearson_per_clip": 0.10664934330034649,
+        "MAE_sample": 0.988182544708252,
+        "RMSE_sample": 1.332777976989746
+      }
+    },
+    {
+      "epoch": 2,
+      "avg_loss": 9.273622371256351,
+      "valid": {
+        "MAE_bpm": 0.439453125,
+        "RMSE_bpm": 0.5673315448546021,
+        "MAPE_pct": 0.8377213487200939,
+        "Pearson": 0.996658303103068,
+        "signal_Pearson": 0.34384462208749533,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.22494454658216492,
+        "Pearson_per_clip": 0.2250734343964221,
+        "MAE_sample": 0.9373993873596191,
+        "RMSE_sample": 1.2414947748184204
+      },
+      "test": {
+        "MAE_bpm": 1.611328125,
+        "RMSE_bpm": 2.8423253777244515,
+        "MAPE_pct": 2.059284629256566,
+        "Pearson": 0.9912648244676758,
+        "signal_Pearson": 0.30655132014134673,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.17512200246555043,
+        "Pearson_per_clip": 0.1751889226575873,
+        "MAE_sample": 0.9827154874801636,
+        "RMSE_sample": 1.2806540727615356
+      }
+    },
+    {
+      "epoch": 3,
+      "avg_loss": 9.211960673332214,
+      "valid": {
+        "MAE_bpm": 0.439453125,
+        "RMSE_bpm": 0.5673315448546021,
+        "MAPE_pct": 0.8377213487200939,
+        "Pearson": 0.996658303103068,
+        "signal_Pearson": 0.2985009438427896,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.18520040065277485,
+        "Pearson_per_clip": 0.1853065140754113,
+        "MAE_sample": 0.9909499883651733,
+        "RMSE_sample": 1.272928237915039
+      },
+      "test": {
+        "MAE_bpm": 5.2734375,
+        "RMSE_bpm": 12.55713755469394,
+        "MAPE_pct": 9.690870787773768,
+        "Pearson": 0.7671343684545242,
+        "signal_Pearson": 0.25832153968413823,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.1417368340955252,
+        "Pearson_per_clip": 0.1417909962977786,
+        "MAE_sample": 0.9986359477043152,
+        "RMSE_sample": 1.3063127994537354
+      }
+    },
+    {
+      "epoch": 4,
+      "avg_loss": 9.131023645401001,
+      "valid": {
+        "MAE_bpm": 0.439453125,
+        "RMSE_bpm": 0.5673315448546021,
+        "MAPE_pct": 0.8377213487200939,
+        "Pearson": 0.996658303103068,
+        "signal_Pearson": 0.3971848141322905,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.26276450356238285,
+        "Pearson_per_clip": 0.26291506041226714,
+        "MAE_sample": 0.9246671199798584,
+        "RMSE_sample": 1.210825800895691
+      },
+      "test": {
+        "MAE_bpm": 1.57470703125,
+        "RMSE_bpm": 2.833819646799771,
+        "MAPE_pct": 1.9828320298681863,
+        "Pearson": 0.9911989802759339,
+        "signal_Pearson": 0.35411985593889933,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.21154796539464787,
+        "Pearson_per_clip": 0.2116288033863089,
+        "MAE_sample": 0.9736899137496948,
+        "RMSE_sample": 1.252058506011963
+      }
+    },
+    {
+      "epoch": 5,
+      "avg_loss": 9.02040170878172,
+      "valid": {
+        "MAE_bpm": 0.5859375,
+        "RMSE_bpm": 0.6712757365657969,
+        "MAPE_pct": 1.0792672424399006,
+        "Pearson": 0.9990140345587503,
+        "signal_Pearson": 0.3572017652410864,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.21151002729302218,
+        "Pearson_per_clip": 0.21163121285880435,
+        "MAE_sample": 0.9436671733856201,
+        "RMSE_sample": 1.2522083520889282
+      },
+      "test": {
+        "MAE_bpm": 1.42822265625,
+        "RMSE_bpm": 2.670077070345437,
+        "MAPE_pct": 1.797646844683001,
+        "Pearson": 0.992653037297371,
+        "signal_Pearson": 0.29741492738788783,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.15724223970160375,
+        "Pearson_per_clip": 0.1573023244436135,
+        "MAE_sample": 0.9934238195419312,
+        "RMSE_sample": 1.2944591045379639
+      }
+    },
+    {
+      "epoch": 6,
+      "avg_loss": 8.887793019413948,
+      "valid": {
+        "MAE_bpm": 0.732421875,
+        "RMSE_bpm": 0.9147946286716404,
+        "MAPE_pct": 1.3208131361597075,
+        "Pearson": 0.9998492778655067,
+        "signal_Pearson": 0.3590485988831466,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.2065551081581953,
+        "Pearson_per_clip": 0.20667345757329744,
+        "MAE_sample": 0.9142735004425049,
+        "RMSE_sample": 1.2561366558074951
+      },
+      "test": {
+        "MAE_bpm": 3.5888671875,
+        "RMSE_bpm": 7.042684793698604,
+        "MAPE_pct": 6.1740512159083245,
+        "Pearson": 0.9210936466843426,
+        "signal_Pearson": 0.298729955354414,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.15249860054225195,
+        "Pearson_per_clip": 0.15255687521759584,
+        "MAE_sample": 0.9735814929008484,
+        "RMSE_sample": 1.298097014427185
+      }
+    },
+    {
+      "epoch": 7,
+      "avg_loss": 8.774097129702568,
+      "valid": {
+        "MAE_bpm": 0.5859375,
+        "RMSE_bpm": 0.6712757365657969,
+        "MAPE_pct": 1.0792672424399006,
+        "Pearson": 0.9990140345587503,
+        "signal_Pearson": 0.30126171455835365,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.12561920837208337,
+        "Pearson_per_clip": 0.12569118363076243,
+        "MAE_sample": 0.9198424220085144,
+        "RMSE_sample": 1.3186476230621338
+      },
+      "test": {
+        "MAE_bpm": 5.56640625,
+        "RMSE_bpm": 9.025743858559103,
+        "MAPE_pct": 10.062300063834591,
+        "Pearson": 0.885479403949616,
+        "signal_Pearson": 0.2681071189490018,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.1206198610204913,
+        "Pearson_per_clip": 0.12066595243998784,
+        "MAE_sample": 0.9544286727905273,
+        "RMSE_sample": 1.3222856521606445
+      }
+    },
+    {
+      "epoch": 8,
+      "avg_loss": 8.686579145491123,
+      "valid": {
+        "MAE_bpm": 0.5859375,
+        "RMSE_bpm": 0.6712757365657969,
+        "MAPE_pct": 1.0792672424399006,
+        "Pearson": 0.9990140345587503,
+        "signal_Pearson": 0.322925952155403,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.14708680982709246,
+        "Pearson_per_clip": 0.1471710851030617,
+        "MAE_sample": 0.9107645153999329,
+        "RMSE_sample": 1.3023594617843628
+      },
+      "test": {
+        "MAE_bpm": 4.39453125,
+        "RMSE_bpm": 7.735290473164122,
+        "MAPE_pct": 7.856272639547328,
+        "Pearson": 0.9091781644742529,
+        "signal_Pearson": 0.27882578988482903,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.1336287199695873,
+        "Pearson_per_clip": 0.13367978294661806,
+        "MAE_sample": 0.9437884092330933,
+        "RMSE_sample": 1.3124687671661377
+      }
+    },
+    {
+      "epoch": 9,
+      "avg_loss": 8.622757881879807,
+      "valid": {
+        "MAE_bpm": 0.5859375,
+        "RMSE_bpm": 0.6712757365657969,
+        "MAPE_pct": 1.0792672424399006,
+        "Pearson": 0.9990140345587503,
+        "signal_Pearson": 0.2901483202571778,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.12423422088813645,
+        "Pearson_per_clip": 0.12430540098455445,
+        "MAE_sample": 0.916352391242981,
+        "RMSE_sample": 1.31969153881073
+      },
+      "test": {
+        "MAE_bpm": 2.197265625,
+        "RMSE_bpm": 4.850601764589389,
+        "MAPE_pct": 3.863427448848581,
+        "Pearson": 0.9561415649115773,
+        "signal_Pearson": 0.26171197233627214,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.11446601567521732,
+        "Pearson_per_clip": 0.1145097545904227,
+        "MAE_sample": 0.9421759247779846,
+        "RMSE_sample": 1.3269041776657104
+      }
+    },
+    {
+      "epoch": 10,
+      "avg_loss": 8.58662711828947,
+      "valid": {
+        "MAE_bpm": 0.5859375,
+        "RMSE_bpm": 0.6712757365657969,
+        "MAPE_pct": 1.0792672424399006,
+        "Pearson": 0.9990140345587503,
+        "signal_Pearson": 0.3238426370555237,
+        "n_subjects": 6,
+        "Pearson_pooled": 0.1425290820972444,
+        "Pearson_per_clip": 0.14261074686254344,
+        "MAE_sample": 0.886699378490448,
+        "RMSE_sample": 1.3058345317840576
+      },
+      "test": {
+        "MAE_bpm": 3.662109375,
+        "RMSE_bpm": 7.240982103493981,
+        "MAPE_pct": 6.704142107628898,
+        "Pearson": 0.9108320899314674,
+        "signal_Pearson": 0.2649290631825759,
+        "n_subjects": 12,
+        "Pearson_pooled": 0.11957833900231722,
+        "Pearson_per_clip": 0.11962403143391113,
+        "MAE_sample": 0.9213671684265137,
+        "RMSE_sample": 1.3230682611465454
+      }
+    }
+  ]
+}

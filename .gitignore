@@ -16,7 +16,7 @@ results/startup_error.txt
 results/*/run.log
 results/*/run.log.err
 
-# Exclude obsolete result directories (only 6:4, 80:20, 7:1:2 OC20, cross 8:2 kept)
+# Exclude obsolete result directories (superseded by phase12/steplr15/diffrouting)
 results/cross_biformer/
 results/cross_biphysformer/
 results/cross_bipulseformer/
@@ -26,6 +26,9 @@ results/cross_82_pure2ubfc/
 results/cross_82_ubfc2pure/
 results/cross_82_pure2ubfc_fulltgt/
 results/cross_82_ubfc2pure_fulltgt/
+results/cross_82_pure_to_ubfc/
+results/cross_82_ubfc_to_pure/
+results/cross_82_pure_to_ubfc_const30/
 results/intra_bipulseformer/
 results/intra_pure_bipulseformer_712/
 results/intra_pure_bipulseformer_712_random/
@@ -85,7 +88,9 @@ results/*/checkpoints/*.pt
 !results/intra_pure_bipulseformer_80_20/checkpoints/PURE_to_PURE_epoch9.pt
 !results/intra_pure_bipulseformer_712_oc20/checkpoints/PURE_epoch11.pt
 !results/intra_ubfc_bipulseformer_712_oc20/checkpoints/UBFC-rPPG_epoch10.pt
-!results/cross_82_pure_to_ubfc/checkpoints/PURE_to_UBFC-rPPG_epoch10.pt
-!results/cross_82_pure_to_ubfc/checkpoints/PURE_to_UBFC-rPPG_epoch6.pt
-!results/cross_82_ubfc_to_pure/checkpoints/UBFC-rPPG_to_PURE_epoch14.pt
-!results/cross_82_ubfc_to_pure/checkpoints/UBFC-rPPG_to_PURE_epoch7.pt
+!results/cross_82_pure_to_ubfc_phase12/checkpoints/PURE_to_UBFC-rPPG_epoch4.pt
+!results/cross_82_ubfc_to_pure_phase12/checkpoints/UBFC-rPPG_to_PURE_epoch7.pt
+!results/cross_82_pure_to_ubfc_steplr15/checkpoints/PURE_to_UBFC-rPPG_epoch3.pt
+!results/cross_82_ubfc_to_pure_steplr15/checkpoints/UBFC-rPPG_to_PURE_epoch11.pt
+!results/intra_pure_biphysformer_712/checkpoints/PURE_epoch2.pt
+!results/intra_ubfc_biphysformer_712/checkpoints/UBFC-rPPG_epoch2.pt

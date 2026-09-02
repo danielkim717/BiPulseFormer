@@ -1,0 +1,70 @@
+======================================================================
+[*] UBFC-rPPG intra-dataset 7/1/2 split
+======================================================================
+  train clips: 319 (70%)
+  valid clips: 85 (10%) - separate from test!
+  test  clips: 214 (20%)
+  model params: 7380865
+
+[*] Epoch 1/10  alpha=1.0, beta=1.0
+
+Epoch 1/10: Train loss 9.0602
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 1.465 BPM  RMSE 2.944  Pearson 0.9748  sig_P 0.7992  MAPE 1.440%  (n_subj=9)
+
+[*] Epoch 2/10  alpha=1.0, beta=1.0
+
+Epoch 2/10: Train loss 8.6282
+  VALID HR MAE 0.000 BPM  RMSE 0.000  Pearson 1.0000  (n_subj=4)
+  TEST  HR MAE 0.488 BPM  RMSE 1.465  Pearson 0.9889  sig_P 0.8392  MAPE 0.492%  (n_subj=9)
+
+[*] Epoch 3/10  alpha=1.0, beta=1.0
+
+Epoch 3/10: Train loss 8.5600
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.000 BPM  RMSE 0.000  Pearson 1.0000  sig_P 0.8666  MAPE 0.000%  (n_subj=9)
+
+[*] Epoch 4/10  alpha=1.0, beta=1.0
+
+Epoch 4/10: Train loss 8.5300
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.000 BPM  RMSE 0.000  Pearson 1.0000  sig_P 0.8704  MAPE 0.000%  (n_subj=9)
+
+[*] Epoch 5/10  alpha=1.0, beta=1.0
+
+Epoch 5/10: Train loss 8.5033
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.000 BPM  RMSE 0.000  Pearson 1.0000  sig_P 0.8776  MAPE 0.000%  (n_subj=9)
+
+[*] Epoch 6/10  alpha=1.0, beta=1.0
+
+Epoch 6/10: Train loss 8.4885
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.195 BPM  RMSE 0.586  Pearson 0.9983  sig_P 0.8443  MAPE 0.200%  (n_subj=9)
+
+[*] Epoch 7/10  alpha=1.0, beta=1.0
+
+Epoch 7/10: Train loss 8.4722
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.195 BPM  RMSE 0.586  Pearson 0.9983  sig_P 0.8690  MAPE 0.200%  (n_subj=9)
+
+[*] Epoch 8/10  alpha=1.0, beta=1.0
+
+Epoch 8/10: Train loss 8.4549
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.293 BPM  RMSE 0.879  Pearson 0.9978  sig_P 0.8528  MAPE 0.370%  (n_subj=9)
+
+[*] Epoch 9/10  alpha=1.0, beta=1.0
+
+Epoch 9/10: Train loss 8.4462
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.000 BPM  RMSE 0.000  Pearson 1.0000  sig_P 0.8859  MAPE 0.000%  (n_subj=9)
+
+[*] Epoch 10/10  alpha=1.0, beta=1.0
+
+Epoch 10/10: Train loss 8.4355
+  VALID HR MAE 0.220 BPM  RMSE 0.439  Pearson 0.9999  (n_subj=4)
+  TEST  HR MAE 0.195 BPM  RMSE 0.586  Pearson 0.9983  sig_P 0.8826  MAPE 0.200%  (n_subj=9)
+
+-> Best for UBFC-rPPG: epoch 2 (selected by VALID HR RMSE 0.000)
+   TEST  MAE 0.488  RMSE 1.465  Pearson(HR) 0.9889  sig_P 0.8392

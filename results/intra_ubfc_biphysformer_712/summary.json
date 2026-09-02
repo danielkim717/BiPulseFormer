@@ -1,0 +1,311 @@
+{
+  "name": "UBFC-rPPG",
+  "split": "7/1/2 subject-exclusive (separate valid)",
+  "best": {
+    "MAE_bpm": 0.48828125,
+    "RMSE_bpm": 1.46484375,
+    "MAPE_pct": 0.4916420845624385,
+    "Pearson": 0.9888891738851783,
+    "signal_Pearson": 0.8392198439490008,
+    "n_subjects": 9,
+    "Pearson_pooled": 0.6931440872673966,
+    "Pearson_per_clip": 0.6932604296707383,
+    "MAE_sample": 0.5375006794929504,
+    "RMSE_sample": 0.7810112237930298
+  },
+  "best_valid": {
+    "MAE_bpm": 0.0,
+    "RMSE_bpm": 0.0,
+    "MAPE_pct": 0.0,
+    "Pearson": 1.0,
+    "signal_Pearson": 0.9162561761879904,
+    "n_subjects": 4,
+    "Pearson_pooled": 0.7936053265685358,
+    "Pearson_per_clip": 0.7937987685203552,
+    "MAE_sample": 0.4395141005516052,
+    "RMSE_sample": 0.6405542492866516
+  },
+  "best_epoch": 2,
+  "history": [
+    {
+      "epoch": 1,
+      "avg_loss": 9.060233478304706,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.8752995975082388,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.7449678423081181,
+        "Pearson_per_clip": 0.7451494319473996,
+        "MAE_sample": 0.513355553150177,
+        "RMSE_sample": 0.7120395302772522
+      },
+      "test": {
+        "MAE_bpm": 1.46484375,
+        "RMSE_bpm": 2.9442994983752606,
+        "MAPE_pct": 1.439669758253829,
+        "Pearson": 0.9747854546958138,
+        "signal_Pearson": 0.7991720627883574,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.6521598994698291,
+        "Pearson_per_clip": 0.6522693604439775,
+        "MAE_sample": 0.6040394902229309,
+        "RMSE_sample": 0.831533670425415
+      }
+    },
+    {
+      "epoch": 2,
+      "avg_loss": 8.628238750409476,
+      "valid": {
+        "MAE_bpm": 0.0,
+        "RMSE_bpm": 0.0,
+        "MAPE_pct": 0.0,
+        "Pearson": 1.0,
+        "signal_Pearson": 0.9162561761879904,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.7936053265685358,
+        "Pearson_per_clip": 0.7937987685203552,
+        "MAE_sample": 0.4395141005516052,
+        "RMSE_sample": 0.6405542492866516
+      },
+      "test": {
+        "MAE_bpm": 0.48828125,
+        "RMSE_bpm": 1.46484375,
+        "MAPE_pct": 0.4916420845624385,
+        "Pearson": 0.9888891738851783,
+        "signal_Pearson": 0.8392198439490008,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.6931440872673966,
+        "Pearson_per_clip": 0.6932604296707383,
+        "MAE_sample": 0.5375006794929504,
+        "RMSE_sample": 0.7810112237930298
+      }
+    },
+    {
+      "epoch": 3,
+      "avg_loss": 8.560035379627083,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.9160246438534156,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.79830754987591,
+        "Pearson_per_clip": 0.7985021493014167,
+        "MAE_sample": 0.42194458842277527,
+        "RMSE_sample": 0.6332154870033264
+      },
+      "test": {
+        "MAE_bpm": 0.0,
+        "RMSE_bpm": 0.0,
+        "MAPE_pct": 0.0,
+        "Pearson": 1.0,
+        "signal_Pearson": 0.8665648781908413,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.7024065086072443,
+        "Pearson_per_clip": 0.7025244107696219,
+        "MAE_sample": 0.5227310657501221,
+        "RMSE_sample": 0.7691335082054138
+      }
+    },
+    {
+      "epoch": 4,
+      "avg_loss": 8.530010247532326,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.9267776959262073,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.8068225781951172,
+        "Pearson_per_clip": 0.8070192533380846,
+        "MAE_sample": 0.41773509979248047,
+        "RMSE_sample": 0.6197048425674438
+      },
+      "test": {
+        "MAE_bpm": 0.0,
+        "RMSE_bpm": 0.0,
+        "MAPE_pct": 0.0,
+        "Pearson": 1.0,
+        "signal_Pearson": 0.8703542880120273,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.7180745451814231,
+        "Pearson_per_clip": 0.7181950777542786,
+        "MAE_sample": 0.5064732432365417,
+        "RMSE_sample": 0.748612642288208
+      }
+    },
+    {
+      "epoch": 5,
+      "avg_loss": 8.503336677068397,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.9291019286481057,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.8077365363693332,
+        "Pearson_per_clip": 0.8079334227477803,
+        "MAE_sample": 0.4085788130760193,
+        "RMSE_sample": 0.6182371377944946
+      },
+      "test": {
+        "MAE_bpm": 0.0,
+        "RMSE_bpm": 0.0,
+        "MAPE_pct": 0.0,
+        "Pearson": 1.0,
+        "signal_Pearson": 0.8776118162221558,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.709695235542246,
+        "Pearson_per_clip": 0.7098143580065013,
+        "MAE_sample": 0.5091679096221924,
+        "RMSE_sample": 0.7596561908721924
+      }
+    },
+    {
+      "epoch": 6,
+      "avg_loss": 8.488486350337162,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.8958367874224803,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.785725822739849,
+        "Pearson_per_clip": 0.7859173552078359,
+        "MAE_sample": 0.4129254221916199,
+        "RMSE_sample": 0.6526669263839722
+      },
+      "test": {
+        "MAE_bpm": 0.1953125,
+        "RMSE_bpm": 0.5859375,
+        "MAPE_pct": 0.20020020020020018,
+        "Pearson": 0.9982617940340521,
+        "signal_Pearson": 0.8443269852589818,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.6767226770092546,
+        "Pearson_per_clip": 0.6768362676272186,
+        "MAE_sample": 0.5274825096130371,
+        "RMSE_sample": 0.8016367554664612
+      }
+    },
+    {
+      "epoch": 7,
+      "avg_loss": 8.472175030768673,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.9042407917511688,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.7837505404007453,
+        "Pearson_per_clip": 0.7839415813193602,
+        "MAE_sample": 0.42265695333480835,
+        "RMSE_sample": 0.655668318271637
+      },
+      "test": {
+        "MAE_bpm": 0.1953125,
+        "RMSE_bpm": 0.5859375,
+        "MAPE_pct": 0.20020020020020018,
+        "Pearson": 0.9982617940340521,
+        "signal_Pearson": 0.8689502190597485,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.6998650741279546,
+        "Pearson_per_clip": 0.6999825569583433,
+        "MAE_sample": 0.5003548860549927,
+        "RMSE_sample": 0.7724106907844543
+      }
+    },
+    {
+      "epoch": 8,
+      "avg_loss": 8.454937029488478,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.896257758221922,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.7502687688248826,
+        "Pearson_per_clip": 0.7504516480600133,
+        "MAE_sample": 0.46963822841644287,
+        "RMSE_sample": 0.7046007513999939
+      },
+      "test": {
+        "MAE_bpm": 0.29296875,
+        "RMSE_bpm": 0.87890625,
+        "MAPE_pct": 0.3703703703703704,
+        "Pearson": 0.9978470907594431,
+        "signal_Pearson": 0.8528402583189202,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.6560074121977534,
+        "Pearson_per_clip": 0.6561175219575378,
+        "MAE_sample": 0.5587238073348999,
+        "RMSE_sample": 0.8269219994544983
+      }
+    },
+    {
+      "epoch": 9,
+      "avg_loss": 8.446218152589436,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.9173441205611954,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.7939617923192793,
+        "Pearson_per_clip": 0.7941553275374805,
+        "MAE_sample": 0.41765573620796204,
+        "RMSE_sample": 0.6400008797645569
+      },
+      "test": {
+        "MAE_bpm": 0.0,
+        "RMSE_bpm": 0.0,
+        "MAPE_pct": 0.0,
+        "Pearson": 1.0,
+        "signal_Pearson": 0.8859170847841383,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.7054119015355907,
+        "Pearson_per_clip": 0.7055303077692183,
+        "MAE_sample": 0.49952664971351624,
+        "RMSE_sample": 0.765239953994751
+      }
+    },
+    {
+      "epoch": 10,
+      "avg_loss": 8.43553638458252,
+      "valid": {
+        "MAE_bpm": 0.2197265625,
+        "RMSE_bpm": 0.439453125,
+        "MAPE_pct": 0.35211267605633806,
+        "Pearson": 0.9999172644623222,
+        "signal_Pearson": 0.9253220307524949,
+        "n_subjects": 4,
+        "Pearson_pooled": 0.7880495397431664,
+        "Pearson_per_clip": 0.7882416342987734,
+        "MAE_sample": 0.4309617280960083,
+        "RMSE_sample": 0.6491183638572693
+      },
+      "test": {
+        "MAE_bpm": 0.1953125,
+        "RMSE_bpm": 0.5859375,
+        "MAPE_pct": 0.20020020020020018,
+        "Pearson": 0.9982617940340521,
+        "signal_Pearson": 0.8825639327620767,
+        "n_subjects": 9,
+        "Pearson_pooled": 0.7044732367294179,
+        "Pearson_per_clip": 0.7045914822858628,
+        "MAE_sample": 0.4987836182117462,
+        "RMSE_sample": 0.7664581537246704
+      }
+    }
+  ]
+}

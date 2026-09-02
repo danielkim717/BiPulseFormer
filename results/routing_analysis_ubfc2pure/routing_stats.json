@@ -1,0 +1,262 @@
+{
+  "ckpt": "results/cross_82_ubfc_to_pure_steplr15/checkpoints/UBFC-rPPG_to_PURE_epoch11.pt",
+  "dataset": "PURE",
+  "n_clips": 52,
+  "avg_self_routing": 0.12384815705128205,
+  "avg_same_quadrant": 0.2472956730769231,
+  "avg_top_half": 0.5162760416666666,
+  "per_layer": {
+    "layer_1": {
+      "stage": 1,
+      "self_routing_ratio": 0.125,
+      "same_quadrant_ratio": 0.25,
+      "top_half_ratio": 0.501201923076923,
+      "bottom_half_ratio": 0.498798076923077,
+      "left_half_ratio": 0.6117788461538461,
+      "right_half_ratio": 0.38822115384615385,
+      "first_half_temporal": 0.5090144230769231,
+      "second_half_temporal": 0.49098557692307687,
+      "spatial_matrix": [
+        [
+          0.3064903846153846,
+          0.19471153846153846
+        ],
+        [
+          0.30528846153846156,
+          0.1935096153846154
+        ]
+      ]
+    },
+    "layer_2": {
+      "stage": 1,
+      "self_routing_ratio": 0.15504807692307693,
+      "same_quadrant_ratio": 0.30408653846153844,
+      "top_half_ratio": 0.506610576923077,
+      "bottom_half_ratio": 0.49338942307692313,
+      "left_half_ratio": 0.42307692307692313,
+      "right_half_ratio": 0.576923076923077,
+      "first_half_temporal": 0.5078125,
+      "second_half_temporal": 0.49218749999999994,
+      "spatial_matrix": [
+        [
+          0.23677884615384617,
+          0.2698317307692308
+        ],
+        [
+          0.18629807692307696,
+          0.3070913461538462
+        ]
+      ]
+    },
+    "layer_3": {
+      "stage": 1,
+      "self_routing_ratio": 0.11418269230769232,
+      "same_quadrant_ratio": 0.22175480769230768,
+      "top_half_ratio": 0.6556490384615385,
+      "bottom_half_ratio": 0.34435096153846156,
+      "left_half_ratio": 0.5132211538461539,
+      "right_half_ratio": 0.48677884615384615,
+      "first_half_temporal": 0.5036057692307692,
+      "second_half_temporal": 0.49639423076923084,
+      "spatial_matrix": [
+        [
+          0.33774038461538464,
+          0.31790865384615385
+        ],
+        [
+          0.17548076923076922,
+          0.16887019230769232
+        ]
+      ]
+    },
+    "layer_4": {
+      "stage": 1,
+      "self_routing_ratio": 0.05108173076923077,
+      "same_quadrant_ratio": 0.10216346153846152,
+      "top_half_ratio": 0.5384615384615384,
+      "bottom_half_ratio": 0.46153846153846156,
+      "left_half_ratio": 0.5637019230769231,
+      "right_half_ratio": 0.4362980769230769,
+      "first_half_temporal": 0.501201923076923,
+      "second_half_temporal": 0.4987980769230769,
+      "spatial_matrix": [
+        [
+          0.3371394230769231,
+          0.2013221153846154
+        ],
+        [
+          0.2265625,
+          0.23497596153846154
+        ]
+      ]
+    },
+    "layer_5": {
+      "stage": 2,
+      "self_routing_ratio": 0.11358173076923077,
+      "same_quadrant_ratio": 0.22596153846153855,
+      "top_half_ratio": 0.3395432692307693,
+      "bottom_half_ratio": 0.6604567307692308,
+      "left_half_ratio": 0.39242788461538464,
+      "right_half_ratio": 0.6075721153846154,
+      "first_half_temporal": 0.4903846153846154,
+      "second_half_temporal": 0.5096153846153847,
+      "spatial_matrix": [
+        [
+          0.09495192307692307,
+          0.24459134615384617
+        ],
+        [
+          0.29747596153846156,
+          0.3629807692307693
+        ]
+      ]
+    },
+    "layer_6": {
+      "stage": 2,
+      "self_routing_ratio": 0.12740384615384617,
+      "same_quadrant_ratio": 0.25901442307692313,
+      "top_half_ratio": 0.6322115384615384,
+      "bottom_half_ratio": 0.36778846153846156,
+      "left_half_ratio": 0.48197115384615385,
+      "right_half_ratio": 0.5180288461538461,
+      "first_half_temporal": 0.4981971153846154,
+      "second_half_temporal": 0.5018028846153846,
+      "spatial_matrix": [
+        [
+          0.36478365384615385,
+          0.2674278846153846
+        ],
+        [
+          0.1171875,
+          0.25060096153846156
+        ]
+      ]
+    },
+    "layer_7": {
+      "stage": 2,
+      "self_routing_ratio": 0.1298076923076923,
+      "same_quadrant_ratio": 0.2608173076923077,
+      "top_half_ratio": 0.5625,
+      "bottom_half_ratio": 0.43750000000000006,
+      "left_half_ratio": 0.7524038461538461,
+      "right_half_ratio": 0.24759615384615385,
+      "first_half_temporal": 0.5102163461538461,
+      "second_half_temporal": 0.48978365384615385,
+      "spatial_matrix": [
+        [
+          0.3882211538461538,
+          0.17427884615384615
+        ],
+        [
+          0.36418269230769235,
+          0.0733173076923077
+        ]
+      ]
+    },
+    "layer_8": {
+      "stage": 2,
+      "self_routing_ratio": 0.13521634615384615,
+      "same_quadrant_ratio": 0.2752403846153846,
+      "top_half_ratio": 0.43689903846153844,
+      "bottom_half_ratio": 0.5631009615384616,
+      "left_half_ratio": 0.47415865384615385,
+      "right_half_ratio": 0.5258413461538461,
+      "first_half_temporal": 0.49338942307692313,
+      "second_half_temporal": 0.5066105769230769,
+      "spatial_matrix": [
+        [
+          0.23978365384615385,
+          0.1971153846153846
+        ],
+        [
+          0.234375,
+          0.32872596153846156
+        ]
+      ]
+    },
+    "layer_9": {
+      "stage": 3,
+      "self_routing_ratio": 0.16526442307692307,
+      "same_quadrant_ratio": 0.3317307692307692,
+      "top_half_ratio": 0.4447115384615385,
+      "bottom_half_ratio": 0.5552884615384616,
+      "left_half_ratio": 0.6610576923076923,
+      "right_half_ratio": 0.3389423076923077,
+      "first_half_temporal": 0.5078125,
+      "second_half_temporal": 0.49218749999999994,
+      "spatial_matrix": [
+        [
+          0.3419471153846154,
+          0.10276442307692307
+        ],
+        [
+          0.3191105769230769,
+          0.23617788461538464
+        ]
+      ]
+    },
+    "layer_10": {
+      "stage": 3,
+      "self_routing_ratio": 0.10697115384615384,
+      "same_quadrant_ratio": 0.20973557692307693,
+      "top_half_ratio": 0.3389423076923077,
+      "bottom_half_ratio": 0.6610576923076923,
+      "left_half_ratio": 0.44290865384615385,
+      "right_half_ratio": 0.5570913461538463,
+      "first_half_temporal": 0.49338942307692313,
+      "second_half_temporal": 0.5066105769230769,
+      "spatial_matrix": [
+        [
+          0.20552884615384615,
+          0.13341346153846156
+        ],
+        [
+          0.2373798076923077,
+          0.42367788461538464
+        ]
+      ]
+    },
+    "layer_11": {
+      "stage": 3,
+      "self_routing_ratio": 0.15504807692307693,
+      "same_quadrant_ratio": 0.30949519230769224,
+      "top_half_ratio": 0.5198317307692307,
+      "bottom_half_ratio": 0.4801682692307693,
+      "left_half_ratio": 0.8293269230769231,
+      "right_half_ratio": 0.17067307692307693,
+      "first_half_temporal": 0.4987980769230769,
+      "second_half_temporal": 0.5012019230769231,
+      "spatial_matrix": [
+        [
+          0.4645432692307692,
+          0.055288461538461536
+        ],
+        [
+          0.36478365384615385,
+          0.11538461538461539
+        ]
+      ]
+    },
+    "layer_12": {
+      "stage": 3,
+      "self_routing_ratio": 0.10757211538461539,
+      "same_quadrant_ratio": 0.2175480769230769,
+      "top_half_ratio": 0.71875,
+      "bottom_half_ratio": 0.28125,
+      "left_half_ratio": 0.5576923076923077,
+      "right_half_ratio": 0.4423076923076923,
+      "first_half_temporal": 0.49759615384615385,
+      "second_half_temporal": 0.5024038461538461,
+      "spatial_matrix": [
+        [
+          0.3840144230769231,
+          0.3347355769230769
+        ],
+        [
+          0.17367788461538464,
+          0.10757211538461539
+        ]
+      ]
+    }
+  }
+}

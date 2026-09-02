@@ -1,0 +1,73 @@
+﻿===========================================================================
+BiPhysFormer — Per-subject (paper-comparable) MAPE 계산
+===========================================================================
+[Dataset] 준비 중: UBFC-rPPG at D:\UBFC-rPPG (data_type=diff_normalized, dyn_freq=0)
+[Dataset] split_range=(0.6, 1.0) → 17 subjects (subject33 ... subject49)
+[Dataset] UBFC-rPPG 샘플 생성 완료: 총 394 클립 (chunk_step=80)
+[Dataset] face detection (HC, 1.5x, static): 17 detected, 0 fallback over 17 videos
+
+=== UBFC intra 60/40 RhythmFormer protocol (valid=test, 10 ep, StepLR) E8 ===
+  ckpt: results/intra_ubfc_biphysformer/checkpoints/UBFC-rPPG_to_UBFC-rPPG_epoch8.pt
+  Test n_subjects: 17
+  Test GT HR: mean=98.54, std=15.24, range=[62.4, 121.3]
+  --- Paper-reportable metrics (per-subject) ---
+  MAE         = 0.0517 BPM
+  RMSE        = 0.2132 BPM
+  MAPE        = 0.0829 %
+  Pearson(HR) = 0.9999
+  signal_Pearson = 0.8964
+[Dataset] 준비 중: UBFC-rPPG at D:\UBFC-rPPG (data_type=diff_normalized, dyn_freq=0)
+[Dataset] split_range=(0.8, 1.0) → 9 subjects (subject41 ... subject49)
+[Dataset] UBFC-rPPG 샘플 생성 완료: 총 214 클립 (chunk_step=80)
+[Dataset] face detection (HC, 1.5x, static): 9 detected, 0 fallback over 9 videos
+
+=== UBFC intra 7/1/2 (separate valid, 20 ep, OneCycleLR) E10 ===
+  ckpt: results/intra_ubfc_biphysformer_712_oc20/checkpoints/UBFC-rPPG_epoch10.pt
+  Test n_subjects: 9
+  Test GT HR: mean=95.61, std=9.29, range=[79.1, 111.6]
+  --- Paper-reportable metrics (per-subject) ---
+  MAE         = 0.3906 BPM
+  RMSE        = 0.8286 BPM
+  MAPE        = 0.3969 %
+  Pearson(HR) = 0.9960
+  signal_Pearson = 0.8568
+[Dataset] 준비 중: PURE at D:\PURE (data_type=diff_normalized, dyn_freq=0)
+[Dataset] split_range=(0.8, 1.0) subject-exclusive RANDOM (seed=42): 10 subjects → 2 subjects (['01', '02']), 12 sessions
+[Dataset] PURE 샘플 생성 완료: 총 298 클립 (chunk_step=80)
+[Dataset] face detection (HC, 1.5x, static): 12 detected, 0 fallback over 12 videos
+
+=== PURE intra 7/1/2 random (separate valid, 20 ep, OneCycleLR) E11 ===
+  ckpt: results/intra_pure_biphysformer_712_oc20/checkpoints/PURE_epoch11.pt
+  Test n_subjects: 12
+  Test GT HR: mean=72.00, std=3.79, range=[65.9, 80.9]
+  --- Paper-reportable metrics (per-subject) ---
+  MAE         = 0.7690 BPM
+  RMSE        = 1.0689 BPM
+  MAPE        = 1.0811 %
+  Pearson(HR) = 0.9602
+  signal_Pearson = 0.4240
+[Dataset] 준비 중: PURE at D:\PURE (data_type=diff_normalized, dyn_freq=0)
+[Dataset] split_range=(0.8, 1.0) subject-exclusive: 10 subjects → 2 subjects (09 ... 10), 12 sessions
+[Dataset] PURE 샘플 생성 완료: 총 296 클립 (chunk_step=80)
+[Dataset] face detection (HC, 1.5x, static): 12 detected, 0 fallback over 12 videos
+
+=== PURE intra 80/20 (valid=test, 10 ep, StepLR) E9 ===
+  ckpt: results/intra_pure_biphysformer_80_20/checkpoints/PURE_to_PURE_epoch9.pt
+  Test n_subjects: 12
+  Test GT HR: mean=63.76, std=15.89, range=[45.7, 93.2]
+  --- Paper-reportable metrics (per-subject) ---
+  MAE         = 1.0986 BPM
+  RMSE        = 1.8384 BPM
+  MAPE        = 1.3928 %
+  Pearson(HR) = 0.9949
+  signal_Pearson = 0.2829
+
+==========================================================================================
+ FINAL SUMMARY (per-subject, paper-comparable)
+==========================================================================================
+Setup                                                                  |    MAE |   RMSE |  MAPE% | Pearson
+------------------------------------------------------------------------------------------------------------------------
+UBFC intra 60/40 RhythmFormer protocol (valid=test, 10 ep, StepLR) E8  | 0.052  | 0.213  | 0.083  |  0.9999
+UBFC intra 7/1/2 (separate valid, 20 ep, OneCycleLR) E10               | 0.391  | 0.829  | 0.397  |  0.9960
+PURE intra 7/1/2 random (separate valid, 20 ep, OneCycleLR) E11        | 0.769  | 1.069  | 1.081  |  0.9602
+PURE intra 80/20 (valid=test, 10 ep, StepLR) E9                        | 1.099  | 1.838  | 1.393  |  0.9949

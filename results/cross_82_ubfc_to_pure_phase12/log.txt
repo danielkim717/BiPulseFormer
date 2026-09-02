@@ -1,0 +1,104 @@
+======================================================================
+[*] UBFC-rPPG -> PURE  (Phase 1+2: n_win=(1, 4, 4), topk=4, routing=fft_power)
+======================================================================
+  StepLR(step=50, gamma=0.5) → 15 epoch 동안 LR=0.0001 constant
+  Loss: constant α=1.0, β=1.0
+  Phase 1: n_win=(1, 4, 4), topk=4 (16 windows × 25%)
+  Phase 2: routing_mode='fft_power' (HR-band FFT power)
+  train clips: 362  (80% of UBFC-rPPG)
+  valid clips: 214  (20% of UBFC-rPPG)
+  test  clips: 1447  (ENTIRE PURE)
+  model params: 7380865
+
+[*] Epoch 1/15  alpha=1.0, beta=1.0
+
+Epoch 1/15: Train loss 9.1128  LR=1.00e-04
+  VALID per-clip MAE 2.464  RMSE 6.431  Pearson 0.8479
+  TEST  per-subj MAE 10.040  RMSE 19.973  MAPE 18.456%  Pearson 0.6532  (n_subj=59)
+
+[*] Epoch 2/15  alpha=1.0, beta=1.0
+
+Epoch 2/15: Train loss 8.6295  LR=1.00e-04
+  VALID per-clip MAE 1.281  RMSE 3.565  Pearson 0.9388
+  TEST  per-subj MAE 12.260  RMSE 22.847  MAPE 23.091%  Pearson 0.5704  (n_subj=59)
+
+[*] Epoch 3/15  alpha=1.0, beta=1.0
+
+Epoch 3/15: Train loss 8.5564  LR=1.00e-04
+  VALID per-clip MAE 1.183  RMSE 3.532  Pearson 0.9395
+  TEST  per-subj MAE 10.763  RMSE 20.248  MAPE 20.105%  Pearson 0.6468  (n_subj=59)
+
+[*] Epoch 4/15  alpha=1.0, beta=1.0
+
+Epoch 4/15: Train loss 8.5304  LR=1.00e-04
+  VALID per-clip MAE 1.479  RMSE 5.064  Pearson 0.8811
+  TEST  per-subj MAE 10.301  RMSE 21.017  MAPE 17.567%  Pearson 0.5604  (n_subj=59)
+
+[*] Epoch 5/15  alpha=1.0, beta=1.0
+
+Epoch 5/15: Train loss 8.5052  LR=1.00e-04
+  VALID per-clip MAE 1.380  RMSE 4.610  Pearson 0.9016
+  TEST  per-subj MAE 12.506  RMSE 22.645  MAPE 22.524%  Pearson 0.5197  (n_subj=59)
+
+[*] Epoch 6/15  alpha=1.0, beta=1.0
+
+Epoch 6/15: Train loss 8.4890  LR=1.00e-04
+  VALID per-clip MAE 1.051  RMSE 3.260  Pearson 0.9483
+  TEST  per-subj MAE 13.832  RMSE 24.659  MAPE 24.720%  Pearson 0.4258  (n_subj=59)
+
+[*] Epoch 7/15  alpha=1.0, beta=1.0
+
+Epoch 7/15: Train loss 8.4695  LR=1.00e-04
+  VALID per-clip MAE 0.986  RMSE 3.188  Pearson 0.9501
+  TEST  per-subj MAE 11.605  RMSE 22.425  MAPE 20.423%  Pearson 0.5184  (n_subj=59)
+
+[*] Epoch 8/15  alpha=1.0, beta=1.0
+
+Epoch 8/15: Train loss 8.4593  LR=1.00e-04
+  VALID per-clip MAE 0.986  RMSE 3.188  Pearson 0.9504
+  TEST  per-subj MAE 11.806  RMSE 22.598  MAPE 20.831%  Pearson 0.5099  (n_subj=59)
+
+[*] Epoch 9/15  alpha=1.0, beta=1.0
+
+Epoch 9/15: Train loss 8.4448  LR=1.00e-04
+  VALID per-clip MAE 1.446  RMSE 5.132  Pearson 0.8773
+  TEST  per-subj MAE 11.895  RMSE 22.725  MAPE 20.909%  Pearson 0.5004  (n_subj=59)
+
+[*] Epoch 10/15  alpha=1.0, beta=1.0
+
+Epoch 10/15: Train loss 8.4408  LR=1.00e-04
+  VALID per-clip MAE 1.117  RMSE 3.532  Pearson 0.9388
+  TEST  per-subj MAE 13.705  RMSE 24.809  MAPE 24.536%  Pearson 0.4299  (n_subj=59)
+
+[*] Epoch 11/15  alpha=1.0, beta=1.0
+
+Epoch 11/15: Train loss 8.4290  LR=1.00e-04
+  VALID per-clip MAE 1.281  RMSE 4.107  Pearson 0.9184
+  TEST  per-subj MAE 13.266  RMSE 23.740  MAPE 24.094%  Pearson 0.4880  (n_subj=59)
+
+[*] Epoch 12/15  alpha=1.0, beta=1.0
+
+Epoch 12/15: Train loss 8.4242  LR=1.00e-04
+  VALID per-clip MAE 1.150  RMSE 3.692  Pearson 0.9347
+  TEST  per-subj MAE 10.606  RMSE 21.327  MAPE 18.592%  Pearson 0.5549  (n_subj=59)
+
+[*] Epoch 13/15  alpha=1.0, beta=1.0
+
+Epoch 13/15: Train loss 8.4206  LR=1.00e-04
+  VALID per-clip MAE 1.150  RMSE 3.365  Pearson 0.9456
+  TEST  per-subj MAE 12.744  RMSE 23.638  MAPE 22.808%  Pearson 0.4724  (n_subj=59)
+
+[*] Epoch 14/15  alpha=1.0, beta=1.0
+
+Epoch 14/15: Train loss 8.4157  LR=1.00e-04
+  VALID per-clip MAE 1.183  RMSE 3.845  Pearson 0.9288
+  TEST  per-subj MAE 12.104  RMSE 22.942  MAPE 21.320%  Pearson 0.4910  (n_subj=59)
+
+[*] Epoch 15/15  alpha=1.0, beta=1.0
+
+Epoch 15/15: Train loss 8.4155  LR=1.00e-04
+  VALID per-clip MAE 1.150  RMSE 3.629  Pearson 0.9366
+  TEST  per-subj MAE 13.340  RMSE 23.877  MAPE 24.241%  Pearson 0.4762  (n_subj=59)
+
+-> Best for UBFC-rPPG -> PURE: epoch 7  (valid per-clip RMSE 3.188)
+   per-subj  MAE 11.605  RMSE 22.425  MAPE 20.423%  Pearson 0.5184
