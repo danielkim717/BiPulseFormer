@@ -213,7 +213,8 @@ def run_cross(src_name, src_path, tgt_name, tgt_path, result_dir):
 
     with open(os.path.join(result_dir, 'summary.json'), 'w', encoding='utf-8') as f:
         json.dump({'name': label, 'best_epoch': best_epoch,
-                   'best': best_test, 'history': history}, f, indent=2)
+                   'best': best_test, 'history': history,
+                   'config': {'n_win': [2, 2, 2], 'topk': 4, 'routing_mode': 'mean'}}, f, indent=2)
     return best_test, best_epoch
 
 

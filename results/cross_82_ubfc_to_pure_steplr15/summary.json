@@ -480,5 +480,14 @@
         "n_subjects": 59
       }
     }
-  ]
+  ],
+  "config": {
+    "n_win": [
+      2,
+      2,
+      2
+    ],
+    "topk": 4,
+    "routing_mode": "mean"
+  }
 }

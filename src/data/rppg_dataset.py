@@ -289,6 +289,13 @@ class RPPGDataset(Dataset):
                                 'bvp': bvp_data[i:i + need_count]
                             })
 
+        else:
+            raise ValueError(
+                f"Unknown dataset_name: {self.dataset_name!r} — RPPGDataset only "
+                f"supports 'PURE' and 'UBFC-rPPG'. A silently-empty dataset (0 clips) "
+                f"is worse than this error."
+            )
+
         print(f"[Dataset] {self.dataset_name} 샘플 생성 완료: 총 {len(self.samples)} 클립 (chunk_step={self.chunk_step})")
 
         # HR validity filter (PhysBench/rPPG-Toolbox trick: 40 < HR < 180 BPM 만 유지)
@@ -400,6 +407,11 @@ class RPPGDataset(Dataset):
                     break
             while len(frames) < need_count:
                 frames.append(frames[-1] if len(frames) > 0 else torch.zeros((3, self.img_size, self.img_size)))
+        else:
+            raise ValueError(
+                f"Unknown dataset_name: {self.dataset_name!r} — RPPGDataset only "
+                f"supports 'PURE' and 'UBFC-rPPG'."
+            )
 
         frames = torch.stack(frames)               # (T_raw, C, H, W)
         frames = frames.permute(1, 0, 2, 3)        # (C, T_raw, H, W)

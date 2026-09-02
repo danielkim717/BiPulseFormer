@@ -9,6 +9,7 @@ try:
 except Exception:
     pass
 
+import json
 import numpy as np
 import torch
 from src.models.bipulseformer import ViT_BiPulseFormer
@@ -16,7 +17,42 @@ from src.data.rppg_dataset import get_dataloader
 from src.evaluation import evaluate_per_subject, get_subject_signals
 
 
-def eval_ckpt(ckpt, dataset, path, split_range, label, pure_mode='subject_exclusive'):
+def _load_run_config(ckpt_path):
+    """ckpt_path = results/<run>/checkpoints/x.pt 패턴에서 <run>/summary.json 의
+    'config' 를 읽어온다. 없으면 None."""
+    run_dir = os.path.dirname(os.path.dirname(ckpt_path))
+    summary_path = os.path.join(run_dir, 'summary.json')
+    if os.path.exists(summary_path):
+        with open(summary_path, encoding='utf-8') as f:
+            return json.load(f).get('config')
+    return None
+
+
+def _check_config_drift(ckpt_path, n_win, topk, routing_mode):
+    """n_win/topk/routing_mode 는 state_dict 밖에 있어서 load_state_dict(strict=False)
+    로는 절대 못 잡는 config drift 버그 클래스다 — 체크포인트의 학습 config 와
+    이 스크립트가 쓰려는 값이 다르면 크게 경고한다."""
+    cfg = _load_run_config(ckpt_path)
+    if cfg is None:
+        return
+    mismatches = []
+    if list(cfg.get('n_win', [])) != list(n_win):
+        mismatches.append(f"n_win: 체크포인트={cfg.get('n_win')} vs 사용={list(n_win)}")
+    if cfg.get('topk') != topk:
+        mismatches.append(f"topk: 체크포인트={cfg.get('topk')} vs 사용={topk}")
+    if cfg.get('routing_mode', 'mean') != routing_mode:
+        mismatches.append(f"routing_mode: 체크포인트={cfg.get('routing_mode', 'mean')} vs 사용={routing_mode}")
+    if mismatches:
+        print('=' * 78)
+        print(f'[!!!] CONFIG MISMATCH for {ckpt_path} — 크래시 없이 조용히 잘못된 결과가 나온다:')
+        for m in mismatches:
+            print(f'      - {m}')
+        print('=' * 78)
+
+
+def eval_ckpt(ckpt, dataset, path, split_range, label, pure_mode='subject_exclusive',
+              n_win=(2, 2, 2), topk=4, routing_mode='mean'):
+    _check_config_drift(ckpt, n_win, topk, routing_mode)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     common = dict(face_crop=True, dynamic_detection_freq=0,
                   data_type='diff_normalized', num_workers=4, pin_memory=True)
@@ -28,7 +64,7 @@ def eval_ckpt(ckpt, dataset, path, split_range, label, pure_mode='subject_exclus
     model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
-        n_win=(2, 2, 2), topk=4,
+        n_win=n_win, topk=topk, routing_mode=routing_mode,
     ).to(device)
     model.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True), strict=False)
     model.eval()

@@ -374,22 +374,28 @@ class ViT_BiPulseFormer(nn.Module):
         ft, fh, fw = patches if isinstance(patches, tuple) else (patches, patches, patches)
         self.patch_embedding = nn.Conv3d(dim, dim, kernel_size=(ft, fh, fw), stride=(ft, fh, fw))
 
+        # BRA 라우팅(routing_mode='fft_power')이 보는 lt 축은 patch_embedding에서
+        # 이미 시간축 stride=ft 만큼 다운샘플링된 토큰이므로, 실제 토큰 샘플링
+        # 레이트는 fps 가 아니라 fps/ft 다. 원본 fps를 그대로 넘기면 HR-band
+        # [0.7,3.0]Hz 마스크가 엉뚱한 주파수 축(실제로는 ~[0.7,3.0]/ft Hz)에
+        # 적용되는 버그가 생긴다 — token_fps로 보정해서 넘긴다.
+        token_fps = fps / ft
         self.transformer1 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
-            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=fps,
+            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=token_fps,
             diff_routing=diff_routing, routing_tau=routing_tau,
         )
         self.transformer2 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
-            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=fps,
+            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=token_fps,
             diff_routing=diff_routing, routing_tau=routing_tau,
         )
         self.transformer3 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
-            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=fps,
+            n_win=n_win, topk=topk, routing_mode=routing_mode, fps=token_fps,
             diff_routing=diff_routing, routing_tau=routing_tau,
         )
 

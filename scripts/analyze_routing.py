@@ -210,6 +210,45 @@ def plot_spatial_heatmap(layer_mats, out_path, n_win=(2, 2, 2)):
     plt.close()
 
 
+def _load_run_config(ckpt_path):
+    """ckpt_path = results/<run>/checkpoints/x.pt 패턴에서 <run>/summary.json 의
+    'config' 를 읽어온다. 없으면 None."""
+    run_dir = os.path.dirname(os.path.dirname(ckpt_path))
+    summary_path = os.path.join(run_dir, 'summary.json')
+    if os.path.exists(summary_path):
+        with open(summary_path, encoding='utf-8') as f:
+            return json.load(f).get('config')
+    return None
+
+
+def _check_config_drift(ckpt_path, n_win, topk, routing_mode):
+    """체크포인트가 학습될 때 쓰인 n_win/topk/routing_mode 와 지금 이 스크립트가
+    쓰려는 값이 다르면 크게 경고한다 — 이 하이퍼파라미터들은 state_dict 밖에 있어서
+    load_state_dict(strict=False) 로는 절대 못 잡는 config drift 버그 클래스다."""
+    cfg = _load_run_config(ckpt_path)
+    if cfg is None:
+        print(f'[!] WARNING: {ckpt_path} 옆에 summary.json config 가 없어서 '
+              f'학습 시 n_win/topk/routing_mode 와 일치하는지 확인 불가. '
+              f'CLI 값 그대로 진행: n_win={n_win}, topk={topk}, routing_mode={routing_mode}')
+        return
+    mismatches = []
+    if list(cfg.get('n_win', [])) != list(n_win):
+        mismatches.append(f"n_win: 체크포인트={cfg.get('n_win')} vs CLI={list(n_win)}")
+    if cfg.get('topk') != topk:
+        mismatches.append(f"topk: 체크포인트={cfg.get('topk')} vs CLI={topk}")
+    if cfg.get('routing_mode', 'mean') != routing_mode:
+        mismatches.append(f"routing_mode: 체크포인트={cfg.get('routing_mode', 'mean')} vs CLI={routing_mode}")
+    if mismatches:
+        print('=' * 78)
+        print('[!!!] CONFIG MISMATCH — 이 체크포인트는 지금 쓰려는 것과 다른 BRA')
+        print('      config 로 학습됨. 크래시 없이 조용히 잘못된 결과가 나온다:')
+        for m in mismatches:
+            print(f'      - {m}')
+        print('=' * 78)
+    else:
+        print(f'[*] Config 확인 완료 (checkpoint 학습 config 와 일치): {cfg}')
+
+
 def main():
     parser = argparse.ArgumentParser(description='BiLevel Routing Attention 분석')
     parser.add_argument('--ckpt', required=True, help='Best checkpoint .pt path')
@@ -222,6 +261,10 @@ def main():
     parser.add_argument('--out_dir', default='results/routing_analysis')
     parser.add_argument('--split_range', nargs=2, type=float, default=None,
                        help='Subject split range (e.g., 0.8 1.0)')
+    parser.add_argument('--n_win', nargs=3, type=int, default=[2, 2, 2],
+                       help='체크포인트 학습 시 n_win 과 반드시 일치해야 함')
+    parser.add_argument('--topk', type=int, default=4)
+    parser.add_argument('--routing_mode', default='mean', choices=['mean', 'fft_power'])
     args = parser.parse_args()
 
     if args.data_path is None:
@@ -230,11 +273,13 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    _check_config_drift(args.ckpt, tuple(args.n_win), args.topk, args.routing_mode)
+
     # 모델 로드
     model = ViT_BiPulseFormer(
         patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
         dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
-        n_win=(2, 2, 2), topk=4,
+        n_win=tuple(args.n_win), topk=args.topk, routing_mode=args.routing_mode,
     ).to(device)
     state = torch.load(args.ckpt, map_location=device, weights_only=True)
     model.load_state_dict(state, strict=False)
@@ -266,19 +311,21 @@ def main():
     cap.remove()
     print(f'[*] Processed {n_done} clips, {len(cap.captures)} layer captures')
 
-    # 집계
-    layer_mats = aggregate(cap.captures, n_layers=12, S=8)
+    # 집계 (S 는 n_win 으로부터 계산 — 하드코딩된 8 은 n_win=(2,2,2) 에서만 맞음)
+    n_win_t = tuple(args.n_win)
+    S = n_win_t[0] * n_win_t[1] * n_win_t[2]
+    layer_mats = aggregate(cap.captures, n_layers=12, S=S)
 
     # 통계 출력
     stats = {}
     for layer in sorted(layer_mats.keys()):
         mat = layer_mats[layer]
-        spatial = spatial_heatmap(mat)
-        temporal = temporal_heatmap(mat)
+        spatial = spatial_heatmap(mat, n_win_t)
+        temporal = temporal_heatmap(mat, n_win_t)
         stats[f'layer_{layer+1}'] = {
             'stage': layer // 4 + 1,
             'self_routing_ratio': self_routing_ratio(mat),
-            'same_quadrant_ratio': same_quadrant_ratio(mat),
+            'same_quadrant_ratio': same_quadrant_ratio(mat, n_win_t),
             'top_half_ratio': float(spatial[0].sum()),    # rPPG 의미: forehead 영역
             'bottom_half_ratio': float(spatial[1].sum()),
             'left_half_ratio': float(spatial[:, 0].sum()),
@@ -332,12 +379,17 @@ def main():
     print(f'\n[*] Saved stats: {json_path}')
 
     # Plots
+    # NOTE: the TL/TR/BL/BR quadrant labels inside plot_spatial_heatmap assume a
+    # 2-row/2-col grid — for n_win spatial != (2,2) the numbers are still correct
+    # (n_win_t is threaded through) but the quadrant *names* on the plot may not
+    # read right. For a proper multi-row (e.g. mid-face) breakdown, use
+    # visualize_routing_faces.py instead, which labels rows generically.
     sel_path = os.path.join(args.out_dir, 'selection_matrices.png')
-    plot_per_layer_matrices(layer_mats, sel_path)
+    plot_per_layer_matrices(layer_mats, sel_path, n_win_t)
     print(f'[*] Saved selection matrices: {sel_path}')
 
     sp_path = os.path.join(args.out_dir, 'spatial_heatmaps.png')
-    plot_spatial_heatmap(layer_mats, sp_path)
+    plot_spatial_heatmap(layer_mats, sp_path, n_win_t)
     print(f'[*] Saved spatial heatmaps: {sp_path}')
 
 
