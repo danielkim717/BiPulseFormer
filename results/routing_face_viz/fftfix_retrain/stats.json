@@ -1,0 +1,54 @@
+{
+  "ckpt": "results\\cross_82_pure_to_ubfc_fftfix\\checkpoints\\PURE_to_UBFC-rPPG_epoch3.pt",
+  "dataset": "UBFC-rPPG",
+  "n_win": [
+    1,
+    4,
+    4
+  ],
+  "topk": 4,
+  "routing_mode": "fft_power",
+  "n_clips": 8,
+  "clip_indices": [
+    0,
+    116,
+    232,
+    348,
+    464,
+    580,
+    696,
+    812
+  ],
+  "avg_grid": [
+    [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.25,
+      0.25,
+      0.0026041666666666665
+    ],
+    [
+      0.0,
+      0.24739583333333331,
+      0.25,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "row_band_ratio": {
+    "forehead/hairline": 0.0,
+    "mid-face (cheek/nose)": 1.0,
+    "mouth/chin": 0.0
+  },
+  "top_region": "mid-face (cheek/nose)"
+}

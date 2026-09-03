@@ -35,32 +35,51 @@ PhysFormer (Yu et al., CVPR 2022) 의 transformer block 에 **BiFormer (Zhu et a
 
 ## 📊 Cross-Dataset 결과 (per-subject)
 
-### Setup
+### Setup (2026-09-03 갱신)
 - **Train**: 80% of source dataset (subject-exclusive)
-- **Valid**: 20% of source dataset (best-epoch 선택)
+- **Valid**: 20% of source dataset (best-epoch 선택, source-domain 기준)
 - **Test**: 100% of target dataset (entire)
-- OneCycleLR(max_lr=1e-4), 20 epochs, α/β schedule (E1-10 1.0/1.0 → E11-20 0.05/5.0)
+- **StepLR(step=50, gamma=0.5), 15 epochs**, constant α=1.0, β=1.0
+- Routing: `routing_mode='fft_power'` (HR-band FFT power 기반 region 선택),
+  `n_win=(1,4,4)` (16 windows, spatial 4×4), `topk=4`
+- 2026-09-03 fix: `_fft_power_region`의 fps 버그 수정 (patch stride로 나누지 않아
+  실제로는 HR 대역이 아닌 저주파 대역을 필터링하던 문제) — 아래 수치는 **수정 후
+  처음부터 재학습**한 결과. 자세한 라우팅 검증은 `results/routing_meaningfulness.md` 참고.
 
-### Cross 8:2 결과 (VALID-best 기준)
+### Cross 8:2 결과 (VALID-best 기준, `scripts/run_cross_82_fftfix.py`)
 
 | 방향 | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
 |---|---:|---:|---:|---:|---:|---:|
-| **PURE → UBFC-rPPG** | E10 | 19.001 | 27.848 | 17.140 | 0.1707 | 42 |
-| **UBFC-rPPG → PURE** | E14 | 13.921 | 24.774 | 24.858 | 0.4290 | 59 |
+| **PURE → UBFC-rPPG** | E3 | **5.462** | 14.317 | 5.008 | **0.686** | 42 |
+| **UBFC-rPPG → PURE** | E6 | 11.634 | 22.164 | 20.904 | 0.539 | 59 |
+
+→ fps 버그 수정으로 PURE→UBFC는 이전 기록(`phase12`, MAE 8.224) 대비 34% 개선. 다만
+UBFC→PURE는 거의 그대로(11.605→11.634) — 방향에 따라 비대칭적으로 나타남.
 
 ### Paper 비교 (cross-dataset)
 
 | 모델 | PURE→UBFC MAE | PURE→UBFC ρ | UBFC→PURE MAE | UBFC→PURE ρ |
 |---|---:|---:|---:|---:|
 | PhysNet (CVPR'20) | 8.06 | 0.66 | 9.74 | 0.85 |
-| PhysFormer (CVPR'22) | 1.44 | 0.98 | 3.34 | 0.97 |
+| **BiPulseFormer cross 8:2 (우리)** | **5.462** | **0.686** | **11.634** | **0.539** |
 | RhythmFormer (PR'25) | 1.21 | 0.99 | 4.45 | 0.97 |
-| **BiPulseFormer cross 8:2 (우리)** | **19.001** | **0.171** | **13.921** | **0.429** |
+| PhysFormer (CVPR'22) | 1.44 | 0.98 | 3.34 | 0.97 |
 
-→ Cross-dataset 평가는 paper 미달. 원인:
-1. PURE 8 subjects 만 학습 (paper 는 더 큰 multi-dataset 사용)
-2. α/β schedule freq-strong phase (E11+) 가 source-overfit 야기
-3. BiFormer sparse routing 의 cross-domain 일반화 한계
+→ PhysNet은 넘었지만 PhysFormer/RhythmFormer 대비 아직 3~4배 격차. 라우팅 자체는
+얼굴 중안부(눈-코-볼-입)를 정확히 선택하는 것으로 확인됐음에도 (`routing_meaningfulness.md`),
+성능 격차의 원인 후보:
+1. Top-k sparse routing (16개 중 4개, 25%) 이 intra-dataset 특화엔 도움이 되지만
+   cross-domain 일반화엔 불리할 수 있음 — full attention 대비 컨텍스트 손실
+2. Loss 가중치가 rPPG-Toolbox 단순화 버전(α=β=1.0 constant)이라 PhysFormer 원논문의
+   `α=0.1, β=1.0·5.0^(epoch/25)` 스케줄과 다름 (미시도)
+3. BatchNorm running stats 가 source 분포 그대로 target 에 적용됨 (미시도: target
+   데이터로 forward-only 재추정)
+4. PURE 8 subjects 만 학습 — 소규모·저다양성 source
+5. Best epoch 선택이 source-domain valid 기준이라 target 성능과 항상 일치하진 않음
+   (TEST Pearson이 epoch마다 크게 진동 — source overfit 신호)
+
+자세한 근거와 다음 단계는 `results/hyperparameter_recommendations.md`,
+`results/analysis_report_cross_dataset.md` 참고.
 
 ## 🏗️ Architecture
 

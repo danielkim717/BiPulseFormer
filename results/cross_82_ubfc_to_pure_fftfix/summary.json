@@ -1,0 +1,494 @@
+{
+  "name": "UBFC-rPPG -> PURE",
+  "best_epoch": 6,
+  "best": {
+    "MAE_clip": 12.974041119557706,
+    "RMSE_clip": 23.463886753210073,
+    "MAPE_clip": 22.44278561595697,
+    "Pearson_clip": 0.4465692952791462,
+    "n_clips": 1447,
+    "MAE_subj": 11.634335275423728,
+    "RMSE_subj": 22.16384314968538,
+    "MAPE_subj": 20.904331687121847,
+    "Pearson_subj": 0.539434615879389,
+    "signal_Pearson": 0.033163638085729856,
+    "n_subjects": 59
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "avg_loss": 9.126831987169053,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 2.4642231308411215,
+        "RMSE_clip": 6.098718544180668,
+        "MAPE_clip": 2.5701824746629587,
+        "Pearson_clip": 0.8471440160941455,
+        "n_clips": 214,
+        "MAE_subj": 0.09765625,
+        "RMSE_subj": 0.29296875,
+        "MAPE_subj": 0.09832841691248771,
+        "Pearson_subj": 0.9995707179094095,
+        "signal_Pearson": 0.7662577733755973,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 12.240303213545266,
+        "RMSE_clip": 21.763407096527008,
+        "MAPE_clip": 20.210400007893913,
+        "Pearson_clip": 0.5063673261277107,
+        "n_clips": 1447,
+        "MAE_subj": 9.66796875,
+        "RMSE_subj": 19.202421773505755,
+        "MAPE_subj": 17.820524056924786,
+        "Pearson_subj": 0.6723235380418249,
+        "signal_Pearson": 0.015911302065905523,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 2,
+      "avg_loss": 8.63464396794637,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.347108644859813,
+        "RMSE_clip": 3.6919147054699075,
+        "MAPE_clip": 1.3778564984584774,
+        "Pearson_clip": 0.937043601984542,
+        "n_clips": 214,
+        "MAE_subj": 0.68359375,
+        "RMSE_subj": 1.46484375,
+        "MAPE_subj": 0.6706706706706707,
+        "Pearson_subj": 0.9893569240565186,
+        "signal_Pearson": 0.8369721090541654,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 13.29474775397374,
+        "RMSE_clip": 23.495899512814834,
+        "MAPE_clip": 23.655722766089895,
+        "Pearson_clip": 0.5018164012891454,
+        "n_clips": 1447,
+        "MAE_subj": 12.36427436440678,
+        "RMSE_subj": 22.709170348655775,
+        "MAPE_subj": 23.187753250108887,
+        "Pearson_subj": 0.5648212363081069,
+        "signal_Pearson": 0.020642029805820805,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 3,
+      "avg_loss": 8.558848815494114,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2485397196261683,
+        "RMSE_clip": 3.5320149489891994,
+        "MAPE_clip": 1.274813124387066,
+        "Pearson_clip": 0.9402208734127024,
+        "n_clips": 214,
+        "MAE_subj": 0.0,
+        "RMSE_subj": 0.0,
+        "MAPE_subj": 0.0,
+        "Pearson_subj": 1.0,
+        "signal_Pearson": 0.8595247651251519,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 11.613467519004837,
+        "RMSE_clip": 21.685558228099765,
+        "MAPE_clip": 20.139421120018323,
+        "Pearson_clip": 0.5352251963420257,
+        "n_clips": 1447,
+        "MAE_subj": 10.010593220338983,
+        "RMSE_subj": 20.274827381985634,
+        "MAPE_subj": 18.662242567107278,
+        "Pearson_subj": 0.6424326768331932,
+        "signal_Pearson": 0.03600038509271625,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 4,
+      "avg_loss": 8.528882831997342,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.314252336448598,
+        "RMSE_clip": 4.7581561570216255,
+        "MAPE_clip": 1.3419111354103108,
+        "Pearson_clip": 0.8996462056478218,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8739949425086522,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 11.686355390463026,
+        "RMSE_clip": 22.21401086030745,
+        "MAPE_clip": 19.663009905766884,
+        "Pearson_clip": 0.48522221449883834,
+        "n_clips": 1447,
+        "MAE_subj": 11.18743379237288,
+        "RMSE_subj": 22.164876900694882,
+        "MAPE_subj": 19.607527875700985,
+        "Pearson_subj": 0.5257456130145667,
+        "signal_Pearson": 0.04147693884070183,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 5,
+      "avg_loss": 8.508994791242811,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.379964953271028,
+        "RMSE_clip": 3.845170839513731,
+        "MAPE_clip": 1.4238001095477733,
+        "Pearson_clip": 0.9299132334080583,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8689886750072788,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 11.385085521769177,
+        "RMSE_clip": 21.60901004810125,
+        "MAPE_clip": 19.53993769048296,
+        "Pearson_clip": 0.5282559255039615,
+        "n_clips": 1447,
+        "MAE_subj": 13.012281514830509,
+        "RMSE_subj": 23.95335553115981,
+        "MAPE_subj": 23.135267710008844,
+        "Pearson_subj": 0.4580910421362411,
+        "signal_Pearson": 0.05290403304295736,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 6,
+      "avg_loss": 8.491004991531373,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.0842581775700935,
+        "RMSE_clip": 3.0776383249450476,
+        "MAPE_clip": 1.1204897127794322,
+        "Pearson_clip": 0.9541742126970106,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8857808155401552,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 12.974041119557706,
+        "RMSE_clip": 23.463886753210073,
+        "MAPE_clip": 22.44278561595697,
+        "Pearson_clip": 0.4465692952791462,
+        "n_clips": 1447,
+        "MAE_subj": 11.634335275423728,
+        "RMSE_subj": 22.16384314968538,
+        "MAPE_subj": 20.904331687121847,
+        "Pearson_subj": 0.539434615879389,
+        "signal_Pearson": 0.033163638085729856,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 7,
+      "avg_loss": 8.474818738301595,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2156834112149533,
+        "RMSE_clip": 3.4325015432384167,
+        "MAPE_clip": 1.2646348978124677,
+        "Pearson_clip": 0.9429243900160732,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8768865122318404,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 13.838977194194886,
+        "RMSE_clip": 24.08613505499639,
+        "MAPE_clip": 24.226247649568233,
+        "Pearson_clip": 0.44415705803746,
+        "n_clips": 1447,
+        "MAE_subj": 12.751588983050848,
+        "RMSE_subj": 23.01996243815999,
+        "MAPE_subj": 23.170753150142303,
+        "Pearson_subj": 0.512905144569533,
+        "signal_Pearson": -0.0002573297294299991,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 8,
+      "avg_loss": 8.463193718592326,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2485397196261683,
+        "RMSE_clip": 3.5320149489891994,
+        "MAPE_clip": 1.281146355019362,
+        "Pearson_clip": 0.9381479675682162,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8842353107078449,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 12.002202833448514,
+        "RMSE_clip": 22.377213341204058,
+        "MAPE_clip": 20.34095531760178,
+        "Pearson_clip": 0.48027852717928143,
+        "n_clips": 1447,
+        "MAE_subj": 12.133375264830509,
+        "RMSE_subj": 23.052997866163178,
+        "MAPE_subj": 21.36300053901558,
+        "Pearson_subj": 0.48706642985801807,
+        "signal_Pearson": 0.0634755427811311,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 9,
+      "avg_loss": 8.449005142847698,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.1828271028037383,
+        "RMSE_clip": 3.4659901561964177,
+        "MAPE_clip": 1.2265927219198245,
+        "Pearson_clip": 0.9419436969906024,
+        "n_clips": 214,
+        "MAE_subj": 1.46484375,
+        "RMSE_subj": 3.1143005310746044,
+        "MAPE_subj": 1.4964964964964966,
+        "Pearson_subj": 0.9741652452298362,
+        "signal_Pearson": 0.8868452325681747,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 12.468685210780926,
+        "RMSE_clip": 22.76922842799471,
+        "MAPE_clip": 21.2085220979838,
+        "Pearson_clip": 0.4662023791223127,
+        "n_clips": 1447,
+        "MAE_subj": 12.3046875,
+        "RMSE_subj": 22.73438011914585,
+        "MAPE_subj": 22.177679112910486,
+        "Pearson_subj": 0.516510715307335,
+        "signal_Pearson": 0.05353039995320987,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 10,
+      "avg_loss": 8.445490286085342,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.412821261682243,
+        "RMSE_clip": 4.2176546475214565,
+        "MAPE_clip": 1.4655803011355513,
+        "Pearson_clip": 0.9169543572937037,
+        "n_clips": 214,
+        "MAE_subj": 0.48828125,
+        "RMSE_subj": 1.0563138502335907,
+        "MAPE_subj": 0.5705705705705706,
+        "Pearson_subj": 0.9959499744729212,
+        "signal_Pearson": 0.8809948744112717,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 13.046928991015895,
+        "RMSE_clip": 23.271619489503998,
+        "MAPE_clip": 22.597497437007387,
+        "Pearson_clip": 0.45641799649179693,
+        "n_clips": 1447,
+        "MAE_subj": 13.362354343220339,
+        "RMSE_subj": 23.95506358387895,
+        "MAPE_subj": 24.30680433412085,
+        "Pearson_subj": 0.48236475225626624,
+        "signal_Pearson": 0.04787830718373763,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 11,
+      "avg_loss": 8.432023673587375,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2156834112149533,
+        "RMSE_clip": 3.6919147054699075,
+        "MAPE_clip": 1.2477685179032072,
+        "Pearson_clip": 0.9340178908937267,
+        "n_clips": 214,
+        "MAE_subj": 1.171875,
+        "RMSE_subj": 2.9877067462457725,
+        "MAPE_subj": 1.1261261261261262,
+        "Pearson_subj": 0.9715352234334006,
+        "signal_Pearson": 0.8650105513381613,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 13.858413959917069,
+        "RMSE_clip": 23.83660494861667,
+        "MAPE_clip": 23.9628350391197,
+        "Pearson_clip": 0.43702439263709864,
+        "n_clips": 1447,
+        "MAE_subj": 12.863314353813559,
+        "RMSE_subj": 23.85325589160142,
+        "MAPE_subj": 22.887751981670156,
+        "Pearson_subj": 0.4657791535689532,
+        "signal_Pearson": -0.006636348426832625,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 12,
+      "avg_loss": 8.427452850341798,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2156834112149533,
+        "RMSE_clip": 3.6919147054699075,
+        "MAPE_clip": 1.269748553627058,
+        "Pearson_clip": 0.9366713841123666,
+        "n_clips": 214,
+        "MAE_subj": 1.171875,
+        "RMSE_subj": 2.9877067462457725,
+        "MAPE_subj": 1.1261261261261262,
+        "Pearson_subj": 0.9715352234334006,
+        "signal_Pearson": 0.8714979084166022,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 13.416227539737388,
+        "RMSE_clip": 23.528594782835277,
+        "MAPE_clip": 22.81240852234324,
+        "Pearson_clip": 0.43782553923947304,
+        "n_clips": 1447,
+        "MAE_subj": 10.673497086864407,
+        "RMSE_subj": 21.183946090863756,
+        "MAPE_subj": 19.460732809174978,
+        "Pearson_subj": 0.5942509051286488,
+        "signal_Pearson": 0.01192070468189999,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 13,
+      "avg_loss": 8.42088934050666,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2485397196261683,
+        "RMSE_clip": 3.660493583377602,
+        "MAPE_clip": 1.2989113690048268,
+        "Pearson_clip": 0.9352154960098045,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8858145473906469,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 13.97989374568072,
+        "RMSE_clip": 23.95313809096877,
+        "MAPE_clip": 24.238967903649392,
+        "Pearson_clip": 0.4372845081382359,
+        "n_clips": 1447,
+        "MAE_subj": 13.042074947033898,
+        "RMSE_subj": 23.29410719108468,
+        "MAPE_subj": 23.587267100525,
+        "Pearson_subj": 0.4981520609909861,
+        "signal_Pearson": 0.011058645539831352,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 14,
+      "avg_loss": 8.415402709113227,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.0842581775700935,
+        "RMSE_clip": 3.4325015432384167,
+        "MAPE_clip": 1.1283420629215022,
+        "Pearson_clip": 0.9442594115894262,
+        "n_clips": 214,
+        "MAE_subj": 0.1953125,
+        "RMSE_subj": 0.5859375,
+        "MAPE_subj": 0.20020020020020018,
+        "Pearson_subj": 0.9982617940340521,
+        "signal_Pearson": 0.8780556609121243,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 11.90987819626814,
+        "RMSE_clip": 22.01626067085132,
+        "MAPE_clip": 20.154197756122098,
+        "Pearson_clip": 0.4937652171026912,
+        "n_clips": 1447,
+        "MAE_subj": 8.535818326271187,
+        "RMSE_subj": 18.227902076829924,
+        "MAPE_subj": 14.56679986391754,
+        "Pearson_subj": 0.6723579582536162,
+        "signal_Pearson": 0.010487442667678922,
+        "n_subjects": 59
+      }
+    },
+    {
+      "epoch": 15,
+      "avg_loss": 8.416622108883328,
+      "lr": 0.0001,
+      "valid": {
+        "MAE_clip": 1.2813960280373833,
+        "RMSE_clip": 3.753968037889729,
+        "MAPE_clip": 1.3395638629283488,
+        "Pearson_clip": 0.9344806033547378,
+        "n_clips": 214,
+        "MAE_subj": 1.26953125,
+        "RMSE_subj": 3.002036357214726,
+        "MAPE_subj": 1.2329637329637329,
+        "Pearson_subj": 0.9715570540261712,
+        "signal_Pearson": 0.8766706297754825,
+        "n_subjects": 9
+      },
+      "test": {
+        "MAE_clip": 15.374481686247409,
+        "RMSE_clip": 25.51341308099119,
+        "MAPE_clip": 26.929187770343056,
+        "Pearson_clip": 0.4003077103483583,
+        "n_clips": 1447,
+        "MAE_subj": 14.524298199152541,
+        "RMSE_subj": 24.77230053643038,
+        "MAPE_subj": 26.608516991412806,
+        "Pearson_subj": 0.4482858454396199,
+        "signal_Pearson": 0.035780142727289875,
+        "n_subjects": 59
+      }
+    }
+  ],
+  "config": {
+    "n_win": [
+      1,
+      4,
+      4
+    ],
+    "topk": 4,
+    "routing_mode": "fft_power",
+    "fps_bug_fixed": true
+  }
+}

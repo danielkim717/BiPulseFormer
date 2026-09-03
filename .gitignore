@@ -95,3 +95,5 @@ results/*/checkpoints/*.pt
 !results/cross_82_ubfc_to_pure_steplr15/checkpoints/UBFC-rPPG_to_PURE_epoch11.pt
 !results/intra_pure_biphysformer_712/checkpoints/PURE_epoch2.pt
 !results/intra_ubfc_biphysformer_712/checkpoints/UBFC-rPPG_epoch2.pt
+!results/cross_82_pure_to_ubfc_fftfix/checkpoints/PURE_to_UBFC-rPPG_epoch3.pt
+!results/cross_82_ubfc_to_pure_fftfix/checkpoints/UBFC-rPPG_to_PURE_epoch6.pt

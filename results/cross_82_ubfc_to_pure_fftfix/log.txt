@@ -1,0 +1,103 @@
+======================================================================
+[*] UBFC-rPPG -> PURE  (fft_power routing, fps-bug FIXED: n_win=(1, 4, 4), topk=4)
+======================================================================
+  StepLR(step=50, gamma=0.5) → 15 epoch 동안 LR=0.0001 constant
+  Loss: constant α=1.0, β=1.0
+  routing_mode='fft_power', token_fps = 30/patches[0] (fps 버그 수정됨)
+  train clips: 362  (80% of UBFC-rPPG)
+  valid clips: 214  (20% of UBFC-rPPG)
+  test  clips: 1447  (ENTIRE PURE)
+  model params: 7380865
+
+[*] Epoch 1/15  alpha=1.0, beta=1.0
+
+Epoch 1/15: Train loss 9.1268  LR=1.00e-04
+  VALID per-clip MAE 2.464  RMSE 6.099  Pearson 0.8471
+  TEST  per-subj MAE 9.668  RMSE 19.202  MAPE 17.821%  Pearson 0.6723  (n_subj=59)
+
+[*] Epoch 2/15  alpha=1.0, beta=1.0
+
+Epoch 2/15: Train loss 8.6346  LR=1.00e-04
+  VALID per-clip MAE 1.347  RMSE 3.692  Pearson 0.9370
+  TEST  per-subj MAE 12.364  RMSE 22.709  MAPE 23.188%  Pearson 0.5648  (n_subj=59)
+
+[*] Epoch 3/15  alpha=1.0, beta=1.0
+
+Epoch 3/15: Train loss 8.5588  LR=1.00e-04
+  VALID per-clip MAE 1.249  RMSE 3.532  Pearson 0.9402
+  TEST  per-subj MAE 10.011  RMSE 20.275  MAPE 18.662%  Pearson 0.6424  (n_subj=59)
+
+[*] Epoch 4/15  alpha=1.0, beta=1.0
+
+Epoch 4/15: Train loss 8.5289  LR=1.00e-04
+  VALID per-clip MAE 1.314  RMSE 4.758  Pearson 0.8996
+  TEST  per-subj MAE 11.187  RMSE 22.165  MAPE 19.608%  Pearson 0.5257  (n_subj=59)
+
+[*] Epoch 5/15  alpha=1.0, beta=1.0
+
+Epoch 5/15: Train loss 8.5090  LR=1.00e-04
+  VALID per-clip MAE 1.380  RMSE 3.845  Pearson 0.9299
+  TEST  per-subj MAE 13.012  RMSE 23.953  MAPE 23.135%  Pearson 0.4581  (n_subj=59)
+
+[*] Epoch 6/15  alpha=1.0, beta=1.0
+
+Epoch 6/15: Train loss 8.4910  LR=1.00e-04
+  VALID per-clip MAE 1.084  RMSE 3.078  Pearson 0.9542
+  TEST  per-subj MAE 11.634  RMSE 22.164  MAPE 20.904%  Pearson 0.5394  (n_subj=59)
+
+[*] Epoch 7/15  alpha=1.0, beta=1.0
+
+Epoch 7/15: Train loss 8.4748  LR=1.00e-04
+  VALID per-clip MAE 1.216  RMSE 3.433  Pearson 0.9429
+  TEST  per-subj MAE 12.752  RMSE 23.020  MAPE 23.171%  Pearson 0.5129  (n_subj=59)
+
+[*] Epoch 8/15  alpha=1.0, beta=1.0
+
+Epoch 8/15: Train loss 8.4632  LR=1.00e-04
+  VALID per-clip MAE 1.249  RMSE 3.532  Pearson 0.9381
+  TEST  per-subj MAE 12.133  RMSE 23.053  MAPE 21.363%  Pearson 0.4871  (n_subj=59)
+
+[*] Epoch 9/15  alpha=1.0, beta=1.0
+
+Epoch 9/15: Train loss 8.4490  LR=1.00e-04
+  VALID per-clip MAE 1.183  RMSE 3.466  Pearson 0.9419
+  TEST  per-subj MAE 12.305  RMSE 22.734  MAPE 22.178%  Pearson 0.5165  (n_subj=59)
+
+[*] Epoch 10/15  alpha=1.0, beta=1.0
+
+Epoch 10/15: Train loss 8.4455  LR=1.00e-04
+  VALID per-clip MAE 1.413  RMSE 4.218  Pearson 0.9170
+  TEST  per-subj MAE 13.362  RMSE 23.955  MAPE 24.307%  Pearson 0.4824  (n_subj=59)
+
+[*] Epoch 11/15  alpha=1.0, beta=1.0
+
+Epoch 11/15: Train loss 8.4320  LR=1.00e-04
+  VALID per-clip MAE 1.216  RMSE 3.692  Pearson 0.9340
+  TEST  per-subj MAE 12.863  RMSE 23.853  MAPE 22.888%  Pearson 0.4658  (n_subj=59)
+
+[*] Epoch 12/15  alpha=1.0, beta=1.0
+
+Epoch 12/15: Train loss 8.4275  LR=1.00e-04
+  VALID per-clip MAE 1.216  RMSE 3.692  Pearson 0.9367
+  TEST  per-subj MAE 10.673  RMSE 21.184  MAPE 19.461%  Pearson 0.5943  (n_subj=59)
+
+[*] Epoch 13/15  alpha=1.0, beta=1.0
+
+Epoch 13/15: Train loss 8.4209  LR=1.00e-04
+  VALID per-clip MAE 1.249  RMSE 3.660  Pearson 0.9352
+  TEST  per-subj MAE 13.042  RMSE 23.294  MAPE 23.587%  Pearson 0.4982  (n_subj=59)
+
+[*] Epoch 14/15  alpha=1.0, beta=1.0
+
+Epoch 14/15: Train loss 8.4154  LR=1.00e-04
+  VALID per-clip MAE 1.084  RMSE 3.433  Pearson 0.9443
+  TEST  per-subj MAE 8.536  RMSE 18.228  MAPE 14.567%  Pearson 0.6724  (n_subj=59)
+
+[*] Epoch 15/15  alpha=1.0, beta=1.0
+
+Epoch 15/15: Train loss 8.4166  LR=1.00e-04
+  VALID per-clip MAE 1.281  RMSE 3.754  Pearson 0.9345
+  TEST  per-subj MAE 14.524  RMSE 24.772  MAPE 26.609%  Pearson 0.4483  (n_subj=59)
+
+-> Best for UBFC-rPPG -> PURE: epoch 6  (valid per-clip RMSE 3.078)
+   per-subj  MAE 11.634  RMSE 22.164  MAPE 20.904%  Pearson 0.5394

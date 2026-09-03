@@ -26,6 +26,7 @@
 | `steplr15_mean_baseline` | (2,2,2) | mean | 해당없음 | 8 | top/bottom 50/50 (중안부 채점 불가) | 채점 불가 — 음성 대조군 (top/bottom 균등 = 신호 없음의 증거) |
 | `phase12_fft_power` | (1,4,4) | fft_power | 있음 (수정 전) | 8 | **0.986** | 기준(0.70) 통과 — 단, 버그 있는 주파수축으로 학습+평가됨 |
 | `phase12_fft_power_fixed` | (1,4,4) | fft_power | **없음 (수정 후 코드로 재평가만)** | 8 | **1.000** | 기준(0.70) 통과 — sanity check, 최종 판정 아님 |
+| `fftfix_retrain` (**진짜 재학습**) | (1,4,4) | fft_power | **없음 (처음부터 fps 수정된 코드로 학습)** | 8 | **1.000** | **기준(0.70) 통과 — 최종 판정** |
 
 ## 3. 해석과 주의사항
 
@@ -48,12 +49,25 @@
   8명 전원에서 배경/이마/머리카락이 아니라 눈-코-볼-입 중앙 2행이 선택되고, subject마다
   선택 패턴이 조금씩 다름 (퇴화된 상수 출력이 아님).
 
-- **진짜 판정은 아직 안 나왔다**: fps가 수정된 코드로 **처음부터 다시 학습**한
-  체크포인트에 대해 이 표를 다시 채워야 한다 (Phase 2). 지금까지의 실측값은 전부
-  "버그 있는 축으로 학습된 가중치"를 다룬 것이라, 학습 자체가 잘못된 신호를 최적화한
-  결과일 수도 있다.
+- **`fftfix_retrain` — 최종 판정 (2026-09-03)**: `scripts/run_cross_82_fftfix.py`로
+  fps 수정된 코드로 **처음부터** 재학습한 체크포인트
+  (`results/cross_82_pure_to_ubfc_fftfix/checkpoints/PURE_to_UBFC-rPPG_epoch3.pt`,
+  best_epoch=3). 중안부 비율 100%, `results/routing_face_viz/fftfix_retrain/grid.png`
+  로 8명 전원 육안 확인 — 배경/이마/머리카락이 아니라 눈-코-볼-입 중앙 2행이
+  일관되게 선택되고 subject마다 세부 패턴이 다름 (퇴화 없음). **0.70 기준을 통과하며,
+  이번엔 학습 자체가 fps 수정된 신호로 이루어졌으므로 sanity check가 아닌 진짜 판정이다.**
+  → **Phase 1 목표(라우팅이 의미있는 얼굴 영역을 선택하는가) 달성.**
+
+  단, cross-dataset 성능(Phase 2 목표)은 방향에 따라 다르게 나왔다 — PURE→UBFC는
+  기존 phase12 대비 MAE 34% 개선(8.224→5.462)됐지만 UBFC→PURE는 거의 그대로
+  (11.605→11.634). 라우팅이 옳은 곳을 보게 됐다고 cross-domain 성능이 자동으로
+  비례해서 좋아지는 건 아니라는 뜻 — 자세한 원인 후보는 대화 기록 참고
+  (top-k sparse attention의 cross-domain trade-off, loss schedule 미스매치,
+  BatchNorm domain shift, 작은 학습 데이터, diff_routing STE 기본 활성화 confound 등).
 
 ## 4. 다음 단계
 
-Phase 2에서 fps 수정된 `fft_power` 설정으로 cross-dataset 재학습 후, 이 표에
-`phase12_fixed_retrain` 행을 추가하고 0.70 기준으로 최종 판정한다.
+Phase 1은 완료. Phase 3(baseline 초월)에서 BN 재추정, loss schedule, BiFormer
+파라미터 스윕 등을 시도해 cross-dataset 성능 자체를 개선한다. STE(diff_routing)를
+껐을 때와 켰을 때의 라우팅 의미성/성능 차이는 사용자 요청에 따라 별도 ablation으로
+나중에 진행한다.
