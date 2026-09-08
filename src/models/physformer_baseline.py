@@ -91,7 +91,7 @@ class MultiHeadedSelfAttention_TDC_gra_sharp(nn.Module):
         scores = self.drop(F.softmax(scores, dim=-1))
         h = (scores @ v).transpose(1, 2).contiguous()
         h = merge_last(h, 2)
-        self.scores = scores
+        self.scores = scores.detach()
         return h, scores
 
 

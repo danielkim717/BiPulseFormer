@@ -1,9 +1,9 @@
 """
-rPPG-Toolbox 호환 cross-dataset 평가 — paper level (MAE 1.44, ρ 0.98) 재현용.
+rPPG-Toolbox-style recording-level HR and waveform evaluation.
 
 차이 (per-clip 평가 → per-subject 평가):
   - rPPG-Toolbox: 모든 clip 을 subject 별로 concat (5sec×11 = ~60sec) → 한 번에 HR 추정
-  - 짧은 5sec 클립 vs 긴 60sec 시그널 → frequency resolution 10배 차이
+  - 긴 영상과 짧은 클립의 HR 추정은 서로 다른 평가 단위이다.
   - DiffNormalized 신호는 cumsum + detrend + Butterworth 후처리 후 periodogram 으로 HR 추출
 
 References:
@@ -99,7 +99,8 @@ def _aggregate_overlapping(arrays, starts, lengths, total_length, mode='mean'):
             continue
         buf[s:end] += arr[:actual_L]
         cnt[s:end] += 1.0
-    cnt = np.maximum(cnt, 1.0)
+    if np.any(cnt == 0):
+        raise ValueError('Uncovered frames in overlap reconstruction')
     return buf / cnt
 
 
@@ -174,6 +175,12 @@ def evaluate_per_subject(preds_array, gts_array, samples, fs=30, diff_flag=True,
       - n_subjects: 평가에 사용된 subject 수
     """
     # Group by video_id, sort by first_frame_idx
+    if (np.ndim(preds_array) != 2 or np.shape(preds_array) != np.shape(gts_array)
+            or len(preds_array) == 0 or len(preds_array) != len(gts_array)
+            or len(preds_array) != len(samples)):
+        raise ValueError('Predictions, labels, and sample metadata must have equal nonzero length')
+    if not np.isfinite(preds_array).all() or not np.isfinite(gts_array).all():
+        raise ValueError('Non-finite evaluation signals')
     by_subj = {}
     for i, samp in enumerate(samples):
         vid = samp['video_id']
@@ -197,7 +204,7 @@ def evaluate_per_subject(preds_array, gts_array, samples, fs=30, diff_flag=True,
             pred_concat = np.concatenate([preds_array[i] for i in idxs])
             gt_concat = np.concatenate([gts_array[i] for i in idxs])
         if pred_concat.shape[0] < 32:
-            continue  # 너무 짧으면 skip
+            raise ValueError(f'Recording too short for evaluation: {vid}')
         try:
             gt_hr, pred_hr, sig_p = calculate_metric_per_video(
                 pred_concat, gt_concat, fs=fs, diff_flag=diff_flag,
@@ -207,23 +214,36 @@ def evaluate_per_subject(preds_array, gts_array, samples, fs=30, diff_flag=True,
             gt_hrs.append(gt_hr)
             sig_pearsons.append(sig_p)
         except Exception as e:
-            print(f"[evaluate_per_subject] skip {vid}: {e}")
-            continue
+            raise ValueError(f'Evaluation failed for {vid}') from e
 
     pred_hrs = np.array(pred_hrs)
     gt_hrs = np.array(gt_hrs)
     abs_err = np.abs(pred_hrs - gt_hrs)
     mae = float(np.mean(abs_err))
-    rmse = float(np.sqrt(np.mean(abs_err ** 2)))
+    sq_err = abs_err ** 2
+    rmse = float(np.sqrt(np.mean(sq_err)))
     nz = gt_hrs != 0
-    mape = float(np.mean(abs_err[nz] / gt_hrs[nz]) * 100.0) if nz.any() else 0.0
+    pct_err = abs_err[nz] / gt_hrs[nz] * 100.0
+    mape = float(np.mean(pct_err)) if nz.any() else 0.0
+    n = len(pred_hrs)
 
-    if len(pred_hrs) >= 2 and pred_hrs.std() > 1e-9 and gt_hrs.std() > 1e-9:
+    if n >= 2 and pred_hrs.std() > 1e-9 and gt_hrs.std() > 1e-9:
         hr_pearson = float(np.corrcoef(pred_hrs, gt_hrs)[0, 1])
     else:
         hr_pearson = 0.0
 
     sig_p_mean = float(np.mean(sig_pearsons)) if sig_pearsons else 0.0
+
+    # Descriptive recording-level SE. Sessions from one person are correlated;
+    # these are not subject-clustered confidence intervals. RMSE uses delta method.
+    mae_se = float(np.std(abs_err, ddof=1) / np.sqrt(n)) if n > 1 else None
+    rmse_se = (float(np.std(sq_err, ddof=1) / (2 * rmse * np.sqrt(n)))
+               if n > 1 and rmse > 0 else (0.0 if n > 1 else None))
+    mape_se = float(np.std(pct_err, ddof=1) / np.sqrt(len(pct_err))) if len(pct_err) > 1 else None
+    if n > 2:
+        pearson_se = float(np.sqrt(max(0.0, 1 - hr_pearson ** 2) / (n - 2)))
+    else:
+        pearson_se = 0.0
 
     return {
         'MAE_bpm': mae,
@@ -231,5 +251,13 @@ def evaluate_per_subject(preds_array, gts_array, samples, fs=30, diff_flag=True,
         'MAPE_pct': mape,
         'Pearson': hr_pearson,
         'signal_Pearson_mean': sig_p_mean,
-        'n_subjects': len(pred_hrs),
+        'n_subjects': n,
+        'n_recordings': n,
+        'recording_ids': list(by_subj),
+        'MAE_se': mae_se,
+        'RMSE_se': rmse_se,
+        'MAPE_se': mape_se,
+        'Pearson_se': pearson_se,
+        'pred_hrs': pred_hrs.tolist(),
+        'gt_hrs': gt_hrs.tolist(),
     }

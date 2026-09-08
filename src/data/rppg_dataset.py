@@ -19,7 +19,7 @@ class RPPGDataset(Dataset):
 
     data_type 옵션 (rPPG-Toolbox `DATA_TYPE`/`LABEL_TYPE`):
       - 'standardized': 입력 / label 모두 z-score (mean 0, std 1)
-      - 'diff_normalized': PhysFormer/Spiking-PhysFormer 가 사용하는 형식
+      - 'diff_normalized': PhysFormer 입력 형식
             data:  (frame_{t+1} - frame_t) / (frame_{t+1} + frame_t + 1e-7), 전체 std 로 나눔
             label: np.diff(label) / std(diff)
         clip_len 출력을 유지하기 위해 raw 입력은 clip_len+1 프레임 사용.
@@ -64,7 +64,11 @@ class RPPGDataset(Dataset):
         if dynamic_detection is True and dynamic_detection_freq == 0:
             dynamic_detection_freq = 30
         self.dynamic_detection_freq = dynamic_detection_freq
-        self.subjects_filter = set(subjects_filter) if subjects_filter else None
+        self.subjects_filter = set(subjects_filter) if subjects_filter is not None else None
+        if clip_len < 2 or self.chunk_step < 1 or fps <= 0:
+            raise ValueError('Invalid clip length, step, or sampling rate')
+        if data_type not in ('raw', 'standardized', 'diff_normalized'):
+            raise ValueError(f'Unknown data_type: {data_type}')
         self.samples = []
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -149,7 +153,8 @@ class RPPGDataset(Dataset):
         if self.dataset_name == 'PURE':
             sessions = sorted([d for d in os.listdir(self.root_dir) if os.path.isdir(os.path.join(self.root_dir, d))])
             if self.subjects_filter is not None:
-                sessions = [s for s in sessions if s in self.subjects_filter]
+                sessions = [s for s in sessions if s in self.subjects_filter
+                            or s.split('-')[0] in self.subjects_filter]
             if self.split_range is not None:
                 if self.pure_split_mode == 'session_per_subject':
                     # SESSION-PER-SUBJECT split: 각 subject (10 명) 마다 6 sessions 를
@@ -218,13 +223,12 @@ class RPPGDataset(Dataset):
                     with open(json_path, 'r') as f:
                         data = json.load(f)
 
-                    bvp_data = [item['Value']['waveform'] for item in data['/FullPackage']]
-                    bvp_data = bvp_data[::2]  # 60→30Hz
                     img_files = sorted(glob.glob(os.path.join(img_dir, "*.png")))
-
-                    min_len = min(len(bvp_data), len(img_files))
-                    bvp_data = bvp_data[:min_len]
-                    img_files = img_files[:min_len]
+                    from src.data.alignment import align_pure
+                    img_files, bvp_data, trimmed = align_pure(data['/FullPackage'], img_files)
+                    if trimmed:
+                        print(f'[Dataset] {subj}: trimmed {trimmed} frames outside PPG timestamp coverage')
+                    min_len = len(img_files)
                     self._video_img_list[subj] = img_files
 
                     for i in range(0, min_len - need_count + 1, self.chunk_step):
@@ -289,11 +293,70 @@ class RPPGDataset(Dataset):
                                 'bvp': bvp_data[i:i + need_count]
                             })
 
+        elif self.dataset_name == 'UBFC-PHYS':
+            # UBFC-PHYS: subject 당 3개 task 영상 (T1=rest, T2/T3=stress 유발 task).
+            # 폴더 구조: root_dir/sN/sN/{vid,bvp,eda}_sN_T{1,2,3}.{avi,csv}
+            # PNG 프레임 미리 추출 안 함 (영상이 subject당 ~5GB, 56명×3개라 디스크 부담) —
+            # __getitem__ 에서 cv2.VideoCapture 로 직접 seek+read.
+            # BVP 는 ~64Hz 로 영상 fps(~35Hz)와 다르게 샘플링돼있어 프레임 수에 맞춰 리샘플.
+            subjects = sorted(
+                [d for d in os.listdir(self.root_dir)
+                 if d.startswith('s') and d[1:].isdigit()
+                 and os.path.isdir(os.path.join(self.root_dir, d))],
+                key=lambda s: int(s[1:]))
+            if self.subjects_filter is not None:
+                subjects = [s for s in subjects if s in self.subjects_filter]
+            if self.split_range is not None:
+                n = len(subjects)
+                s_idx = int(self.split_range[0] * n)
+                e_idx = int(self.split_range[1] * n)
+                subjects = subjects[s_idx:e_idx]
+                print(f"[Dataset] split_range={self.split_range} → {len(subjects)} subjects "
+                      f"(UBFC-PHYS, subject-exclusive across all 3 tasks)")
+
+            for subj in subjects:
+                subj_dir = os.path.join(self.root_dir, subj, subj)
+                if not os.path.isdir(subj_dir):
+                    subj_dir = os.path.join(self.root_dir, subj)
+                for task in (1, 2, 3):
+                    vid_path = os.path.join(subj_dir, f'vid_{subj}_T{task}.avi')
+                    bvp_path = os.path.join(subj_dir, f'bvp_{subj}_T{task}.csv')
+                    if not (os.path.exists(vid_path) and os.path.exists(bvp_path)):
+                        continue
+                    video_id = f'{subj}_T{task}'
+                    cap = cv2.VideoCapture(vid_path)
+                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    ret, first_frame = cap.read()
+                    cap.release()
+                    if not ret or frame_count < need_count:
+                        continue
+                    if self.face_crop and self.face_detection_backend == 'HC':
+                        first_frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
+                        box, found = self._detect_face_box_raw(first_frame)
+                        self._face_box_cache[video_id] = box
+
+                    with open(bvp_path, 'r') as f:
+                        bvp_raw = np.array([float(x) for x in f.read().split()], dtype=np.float64)
+                    if len(bvp_raw) != frame_count and len(bvp_raw) > 1:
+                        x_old = np.linspace(0.0, 1.0, len(bvp_raw))
+                        x_new = np.linspace(0.0, 1.0, frame_count)
+                        bvp_data = np.interp(x_new, x_old, bvp_raw).tolist()
+                    else:
+                        bvp_data = bvp_raw.tolist()
+
+                    for i in range(0, frame_count - need_count + 1, self.chunk_step):
+                        self.samples.append({
+                            'video_id': video_id,
+                            'first_frame_idx': i,
+                            'video_path': vid_path,
+                            'bvp': bvp_data[i:i + need_count],
+                        })
+
         else:
             raise ValueError(
                 f"Unknown dataset_name: {self.dataset_name!r} — RPPGDataset only "
-                f"supports 'PURE' and 'UBFC-rPPG'. A silently-empty dataset (0 clips) "
-                f"is worse than this error."
+                f"supports 'PURE', 'UBFC-rPPG', and 'UBFC-PHYS'. A silently-empty "
+                f"dataset (0 clips) is worse than this error."
             )
 
         print(f"[Dataset] {self.dataset_name} 샘플 생성 완료: 총 {len(self.samples)} 클립 (chunk_step={self.chunk_step})")
@@ -388,6 +451,8 @@ class RPPGDataset(Dataset):
         if self.dataset_name == 'PURE':
             for j, img_path in enumerate(sample['img_paths']):
                 img = cv2.imread(img_path)
+                if img is None:
+                    raise OSError(f'Cannot read frame: {img_path}')
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 if self.face_crop:
                     img = self._crop_face(img, video_id, first_idx + j)
@@ -399,18 +464,33 @@ class RPPGDataset(Dataset):
                 img_path = os.path.join(frames_dir, f"{start_idx + j:05d}.png")
                 if os.path.exists(img_path):
                     img = cv2.imread(img_path)
+                    if img is None:
+                        raise OSError(f'Cannot read frame: {img_path}')
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     if self.face_crop:
                         img = self._crop_face(img, video_id, first_idx + j)
                     frames.append(self.transform(img))
                 else:
+                    raise FileNotFoundError(img_path)
+        elif self.dataset_name == 'UBFC-PHYS':
+            # PNG로 미리 추출 안 했으므로 영상에서 직접 seek + 순차 read.
+            cap = cv2.VideoCapture(sample['video_path'])
+            cap.set(cv2.CAP_PROP_POS_FRAMES, first_idx)
+            for j in range(need_count):
+                ret, img = cap.read()
+                if not ret:
                     break
-            while len(frames) < need_count:
-                frames.append(frames[-1] if len(frames) > 0 else torch.zeros((3, self.img_size, self.img_size)))
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                if self.face_crop:
+                    img = self._crop_face(img, video_id, first_idx + j)
+                frames.append(self.transform(img))
+            cap.release()
+            if len(frames) != need_count:
+                raise OSError(f'Incomplete video clip: {sample["video_path"]} at {first_idx}')
         else:
             raise ValueError(
                 f"Unknown dataset_name: {self.dataset_name!r} — RPPGDataset only "
-                f"supports 'PURE' and 'UBFC-rPPG'."
+                f"supports 'PURE', 'UBFC-rPPG', and 'UBFC-PHYS'."
             )
 
         frames = torch.stack(frames)               # (T_raw, C, H, W)
@@ -470,8 +550,8 @@ def get_dataloader(dataset_name, root_dir, batch_size=2, clip_len=30, img_size=1
                           pure_split_mode=pure_split_mode,
                           dynamic_detection=dynamic_detection,
                           standardize_input=standardize_input)
-    # 마지막 incomplete batch 가 SNN 내부 BN 통계 (track_running_stats=False) 를
-    # 불안정하게 만들 수 있어 train 에서는 drop_last=True 권장.
+    # Historical wrappers retain their drop-last behavior; the shared runner
+    # explicitly includes every training sample.
     if drop_last is None:
         drop_last = bool(shuffle)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,

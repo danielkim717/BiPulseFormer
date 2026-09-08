@@ -84,8 +84,8 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
 
     routing_mode:
       - 'mean': window mean embedding (default, BiFormer paper)
-      - 'fft_power': HR-band (0.7-3 Hz) FFT power per window — Phase 2 개선
-                     rPPG 신호 강도가 강한 region을 선택하도록 routing
+      - 'fft_magnitude': configured HR-band mean FFT magnitude per window
+      - 'fft_power': historical alias for fft_magnitude (not squared power)
 
     diff_routing (STE):
       Hard top-k(torch.topk)는 미분 불가능해 proj_q/proj_k가 "어떤 region을
@@ -93,13 +93,23 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
       간접 학습된다 (routing_analysis 실측 결과 self/same-quadrant/top-half 비율이
       모두 random 수준). diff_routing=True(default) + self.training 시,
       forward 값은 기존 hard top-k와 동일하게 유지하되 backward gradient만
-      softmax(a_r/routing_tau)로 흘려보내는 straight-through estimator 사용.
+      soft region log-prior를 사용하는 straight-through surrogate로 전달.
       eval() 시에는 항상 기존 gather 기반 sparse 경로 (체크포인트 호환 + 속도).
     """
     def __init__(self, dim, num_heads, dropout, theta,
                  n_win=(2, 2, 2), topk=4, routing_mode='mean', fps=30,
-                 diff_routing=True, routing_tau=0.5):
+                 diff_routing=True, routing_tau=0.5, routing_band=(0.7, 3.0)):
         super().__init__()
+        if num_heads < 1 or dim % num_heads:
+            raise ValueError('dim must be divisible by num_heads')
+        if len(n_win) != 3 or any(v < 1 for v in n_win):
+            raise ValueError('n_win must contain three positive integers')
+        if routing_mode not in ('mean', 'fft_power', 'fft_magnitude'):
+            raise ValueError(f'Unknown routing mode: {routing_mode}')
+        if topk < 1 or topk > math.prod(n_win) or routing_tau <= 0:
+            raise ValueError('Invalid topk or routing temperature')
+        if not 0 < routing_band[0] < routing_band[1] < fps / 2:
+            raise ValueError('Routing band must be below token Nyquist frequency')
         self.proj_q = nn.Sequential(
             CDC_T(dim, dim, 3, stride=1, padding=1, groups=1, bias=False, theta=theta),
             nn.BatchNorm3d(dim),
@@ -120,12 +130,15 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         self.fps = fps
         self.diff_routing = diff_routing
         self.routing_tau = routing_tau
+        self.routing_band = routing_band
         self.scores = None  # for visualization
 
     def _window_partition(self, feat_3d, t, h, w):
         """feat_3d: (B, C, t, h, w) → (B, S, win, C), S=n_win 원소의 곱 (window 개수), win=window 당 토큰 수."""
         B, C = feat_3d.shape[:2]
         wt, wh, ww = self.n_win
+        if t % wt or h % wh or w % ww:
+            raise ValueError('Feature dimensions must be divisible by n_win')
         lt, lh, lw = t // wt, h // wh, w // ww
         feat = feat_3d.view(B, C, wt, lt, wh, lh, ww, lw)
         feat = feat.permute(0, 2, 4, 6, 3, 5, 7, 1).contiguous()  # (B, wt, wh, ww, lt, lh, lw, C)
@@ -134,7 +147,7 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         return feat.view(B, S, win, C), (lt, lh, lw)
 
     def _fft_power_region(self, feat_w, lt, lh, lw):
-        """Phase 2: HR-band (0.7-3 Hz) FFT power per window.
+        """Mean FFT magnitude in routing_band; historical method name retained.
 
         feat_w: (B, S, win=lt*lh*lw, C) → (B, S, C) HR-band power embedding.
         rPPG 신호 강도가 강한 region이 routing source/target으로 선택되도록.
@@ -145,10 +158,10 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         # Spatial mean within window → (B, S, lt, C)
         feat_t = feat.mean(dim=3)
         # Temporal FFT along lt → (B, S, lt//2+1, C)
-        fft = torch.fft.rfft(feat_t, dim=2).abs()
+        fft = torch.fft.rfft(feat_t.float(), dim=2).abs()
         # HR band mask (0.7-3.0 Hz)
         freqs = torch.fft.rfftfreq(lt, 1.0 / self.fps).to(feat_w.device)
-        hr_mask = (freqs >= 0.7) & (freqs <= 3.0)
+        hr_mask = (freqs >= self.routing_band[0]) & (freqs <= self.routing_band[1])
         if hr_mask.sum() == 0:
             # Window too short → fallback to mean
             return feat_w.mean(dim=2)
@@ -185,7 +198,7 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         win = q_w.shape[2]
 
         # Region routing
-        if self.routing_mode == 'fft_power':
+        if self.routing_mode in ('fft_power', 'fft_magnitude'):
             # Phase 2: HR-band FFT power per window
             q_r = self._fft_power_region(q_w, lt, lh, lw)
             k_r = self._fft_power_region(k_w, lt, lh, lw)
@@ -205,8 +218,6 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
             # gate tensor participates in the graph the same way for every window.
             _, topk_idx = torch.topk(a_r, k=topk, dim=-1)
             mask_hard = torch.zeros_like(a_r).scatter_(-1, topk_idx, 1.0)   # (B, S, S), no grad
-            mask_soft = F.softmax(a_r / self.routing_tau, dim=-1)
-            gate = mask_hard + mask_soft - mask_soft.detach()               # STE: fwd=hard, bwd=soft
 
             def split_heads(t_):
                 return t_.view(B, S * win, H, d).permute(0, 2, 1, 3)        # (B, H, P, d)
@@ -214,14 +225,17 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
             k_h = split_heads(k_w.reshape(B, S * win, C))
             v_h = split_heads(v_w.reshape(B, S * win, C))
             scores = (q_h @ k_h.transpose(-2, -1)) / gra_sharp             # (B, H, P, P)
-            attn = F.softmax(scores, dim=-1)                               # dense softmax over ALL P keys
-            gate_tok = gate.repeat_interleave(win, dim=1).repeat_interleave(win, dim=2)  # (B, P, P)
-            # mask + renormalize == softmax restricted to the routed keys only (same
-            # numerics as the sparse-gather branch below), but the gate multiplies
-            # attn probabilities directly instead of a huge pre-softmax additive bias
-            # — keeps the STE gradient into a_r on a sane, bounded scale.
-            attn = attn * gate_tok.unsqueeze(1)                            # (B, H, P, P)
-            attn = attn / (attn.sum(dim=-1, keepdim=True) + 1e-9)
+            hard_tokens = mask_hard.bool().repeat_interleave(win, dim=1).repeat_interleave(win, dim=2)
+            # Normalize ONLY selected logits: dense-softmax then masking can
+            # underflow all selected probabilities when an unselected logit wins.
+            hard_attn = F.softmax(scores.masked_fill(~hard_tokens.unsqueeze(1), float('-inf')), dim=-1)
+            # Straight-through surrogate: forward remains exactly hard routing.
+            # The soft region prior carries routing gradients; detached content
+            # logits avoid adding a second content-attention gradient path.
+            log_prior = F.log_softmax(a_r / self.routing_tau, dim=-1)
+            log_prior = log_prior.repeat_interleave(win, dim=1).repeat_interleave(win, dim=2)
+            soft_attn = F.softmax(scores.detach() + log_prior.unsqueeze(1), dim=-1)
+            attn = hard_attn + (soft_attn - soft_attn.detach())
             scores = self.drop(attn)
             out = scores @ v_h                                             # (B, H, P, d)
             out = out.permute(0, 2, 1, 3).reshape(B, S, win, C)            # back to window-partitioned
@@ -246,7 +260,7 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
 
         h_out = self._window_reverse(out, t, h, w, lt, lh, lw)              # (B, P, C)
         # Score (region routing) for visualization compatibility
-        self.scores = a_r
+        self.scores = a_r.detach()
         return h_out, a_r
 
 
@@ -289,12 +303,12 @@ class Block_ST_TDC_gra_sharp_Bi(nn.Module):
     """Transformer Block (BiLevel Routing Attention 적용)."""
     def __init__(self, dim, num_heads, ff_dim, dropout, theta,
                  n_win=(2, 2, 2), topk=4, routing_mode='mean', fps=30,
-                 diff_routing=True, routing_tau=0.5):
+                 diff_routing=True, routing_tau=0.5, routing_band=(0.7, 3.0)):
         super().__init__()
         self.attn = BiLevelRoutingAttention_TDC_gra_sharp(
             dim, num_heads, dropout, theta, n_win=n_win, topk=topk,
             routing_mode=routing_mode, fps=fps,
-            diff_routing=diff_routing, routing_tau=routing_tau,
+            diff_routing=diff_routing, routing_tau=routing_tau, routing_band=routing_band,
         )
         self.proj = nn.Linear(dim, dim)
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
@@ -318,13 +332,13 @@ class Block_ST_TDC_gra_sharp_Bi(nn.Module):
 class Transformer_ST_TDC_gra_sharp_Bi(nn.Module):
     def __init__(self, num_layers, dim, num_heads, ff_dim, dropout, theta,
                  n_win=(2, 2, 2), topk=4, routing_mode='mean', fps=30,
-                 diff_routing=True, routing_tau=0.5):
+                 diff_routing=True, routing_tau=0.5, routing_band=(0.7, 3.0)):
         super().__init__()
         self.blocks = nn.ModuleList([
             Block_ST_TDC_gra_sharp_Bi(dim, num_heads, ff_dim, dropout, theta,
                                       n_win=n_win, topk=topk,
                                       routing_mode=routing_mode, fps=fps,
-                                      diff_routing=diff_routing, routing_tau=routing_tau)
+                                      diff_routing=diff_routing, routing_tau=routing_tau, routing_band=routing_band)
             for _ in range(num_layers)
         ])
 
@@ -365,8 +379,13 @@ class ViT_BiPulseFormer(nn.Module):
         fps: int = 30,
         diff_routing: bool = True,
         routing_tau: float = 0.5,
+        routing_band=(0.7, 3.0),
     ):
         super().__init__()
+        if tuple(patches) != (4, 4, 4) or tuple(image_size[1:]) != (128, 128):
+            raise ValueError('Current stem/head require patches=(4,4,4) and 128x128 inputs')
+        if num_layers < 3 or num_layers % 3:
+            raise ValueError('num_layers must be a positive multiple of three')
         self.image_size = image_size
         self.frame = frame
         self.dim = dim
@@ -384,19 +403,19 @@ class ViT_BiPulseFormer(nn.Module):
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
             n_win=n_win, topk=topk, routing_mode=routing_mode, fps=token_fps,
-            diff_routing=diff_routing, routing_tau=routing_tau,
+            diff_routing=diff_routing, routing_tau=routing_tau, routing_band=routing_band,
         )
         self.transformer2 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
             n_win=n_win, topk=topk, routing_mode=routing_mode, fps=token_fps,
-            diff_routing=diff_routing, routing_tau=routing_tau,
+            diff_routing=diff_routing, routing_tau=routing_tau, routing_band=routing_band,
         )
         self.transformer3 = Transformer_ST_TDC_gra_sharp_Bi(
             num_layers=num_layers // 3, dim=dim, num_heads=num_heads,
             ff_dim=ff_dim, dropout=dropout_rate, theta=theta,
             n_win=n_win, topk=topk, routing_mode=routing_mode, fps=token_fps,
-            diff_routing=diff_routing, routing_tau=routing_tau,
+            diff_routing=diff_routing, routing_tau=routing_tau, routing_band=routing_band,
         )
 
         self.Stem0 = nn.Sequential(
@@ -447,6 +466,8 @@ class ViT_BiPulseFormer(nn.Module):
     def forward(self, x, gra_sharp=2.0):
         """x: (B, 3, T, H, W). Returns (rPPG, Score1, Score2, Score3) — PhysFormer 와 동일."""
         b, c, t, fh, fw = x.shape
+        if c != 3 or t % 4 or (fh, fw) != (128, 128):
+            raise ValueError('Expected (B,3,T,128,128) with T divisible by 4')
 
         x = self.Stem0(x)
         x = self.Stem1(x)

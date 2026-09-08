@@ -1,13 +1,6 @@
 torch
 torchvision
-spikingjelly
-einops
-requests
-tqdm
 opencv-python
-decord
-gdown
 numpy
 matplotlib
 scipy
-einops

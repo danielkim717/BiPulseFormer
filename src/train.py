@@ -1,7 +1,8 @@
 """
 Loss functions used by the active training pipeline.
 
-NegPearsonLoss + FrequencyLoss — rPPG-Toolbox PhysFormer recipe 와 동일하게 정렬.
+NegPearsonLoss + FrequencyLoss, based on the rPPG-Toolbox PhysFormer recipe.
+Protocol v1 restores derivative predictions/labels before spectral supervision.
 
 Reference (rPPG-Toolbox):
   - PhysFormerTrainer.py: https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/trainer/PhysFormerTrainer.py
@@ -101,11 +102,13 @@ def cross_entropy_power_spectrum_DLDL_softmax2(rppg, target_hr_bpm, fps, std=1.0
     bpm_range = torch.arange(bpm_low, bpm_high, dtype=torch.float32, device=device)
     ca = _complex_absolute_one(rppg, fps, bpm_range)        # (1, 140), sum=1
 
-    fre_distribution = ca / torch.sum(ca)                   # already sum=1, idempotent
+    fre_distribution = ca / torch.sum(ca).clamp_min(1e-12)
     loss_kl = _kl_loss(fre_distribution, target_dist)
 
     whole_max_idx = ca.view(-1).argmax().type(torch.float32)
     target_idx = (target - bpm_low).view(1).type(torch.long)
+    if not torch.isfinite(target).all() or not 0 <= target_idx.item() < bpm_high - bpm_low:
+        raise ValueError('HR target lies outside the configured frequency bins')
     loss_ce = F.cross_entropy(ca, target_idx)
     hr_mae = torch.abs(target.view(-1)[0] - bpm_low - whole_max_idx)
     return loss_kl, loss_ce, hr_mae
@@ -120,14 +123,26 @@ class FrequencyLoss(nn.Module):
 
     내부적으로 sample 별로 cross_entropy_power_spectrum_DLDL_softmax2 호출 후 평균.
     """
-    def __init__(self, fps=30, bpm_low=40, bpm_high=180, std=1.0):
+    def __init__(self, fps=30, bpm_low=40, bpm_high=180, std=1.0, diff_flag=False):
         super().__init__()
         self.fps = fps
         self.bpm_low = bpm_low
         self.bpm_high = bpm_high
         self.std = std
+        self.diff_flag = diff_flag
+        self.register_buffer('_detrend_operator', torch.empty(0), persistent=False)
 
     def forward(self, preds, target_hr_bpm):
+        if self.diff_flag:
+            # Restore a PPG-like signal before spectral supervision. Applying
+            # power loss directly to a derivative overweights high harmonics.
+            n = preds.shape[-1]
+            if self._detrend_operator.shape != (n, n) or self._detrend_operator.device != preds.device:
+                eye = torch.eye(n, dtype=torch.float64, device=preds.device)
+                difference = torch.diff(eye, n=2, dim=0)
+                smooth = torch.linalg.solve(eye + 10000 * difference.T @ difference, eye)
+                self._detrend_operator = (eye - smooth).to(dtype=preds.dtype)
+            preds = preds.cumsum(dim=-1) @ self._detrend_operator.T
         B = preds.shape[0]
         loss_ce_total = 0.0
         loss_kl_total = 0.0
@@ -139,3 +154,27 @@ class FrequencyLoss(nn.Module):
             loss_ce_total = loss_ce_total + loss_ce
             loss_kl_total = loss_kl_total + loss_kl
         return loss_ce_total / B, loss_kl_total / B
+
+
+def estimate_hr_targets(signals, fps=30, bpm_low=40, bpm_high=180, diff_flag=True):
+    """Welch HR labels in the same band as the loss, without silent clamping.
+
+    Diff-normalized labels are restored before HR estimation to avoid amplifying
+    the second harmonic. Set diff_flag=False for raw PPG inputs.
+    Invalid flat labels fail instead of silently yielding a low-band target.
+    """
+    from scipy.signal import welch
+    values = np.asarray(signals, dtype=np.float64)
+    if values.ndim != 2 or not np.isfinite(values).all():
+        raise ValueError('Expected finite (B,T) target signals')
+    if np.any(values.std(axis=-1) < 1e-9):
+        raise ValueError('Flat ground-truth PPG; check data alignment')
+    if diff_flag:
+        from src.evaluation import _detrend
+        values = np.stack([_detrend(np.cumsum(row), 100) for row in values])
+    frequencies, power = welch(values, fs=fps, nfft=max(values.shape[-1], round(1e5 / fps)),
+                               nperseg=min(values.shape[-1] - 1, 256), axis=-1)
+    mask = (frequencies >= bpm_low / 60) & (frequencies < bpm_high / 60)
+    if not mask.any():
+        raise ValueError('No Welch frequency bins in HR band')
+    return frequencies[mask][power[:, mask].argmax(axis=-1)] * 60

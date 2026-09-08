@@ -1,249 +1,86 @@
-# BiPulseFormer: BiLevel Routing Attention for rPPG
+# BiPulseFormer
 
-PhysFormer (Yu et al., CVPR 2022) 의 transformer block 에 **BiFormer (Zhu et al., CVPR 2023) 의 BiLevel Routing Attention** 을 적용한 **rPPG (remote photoplethysmography) 심박수 추정** 모델.
+PhysFormer의 temporal-difference attention에 BiLevel Routing Attention을 결합한 영상 기반 rPPG 연구 코드입니다. 목표는 고정된 실험 조건에서 성능을 개선하고 동일 조건의 비교 모델 및 공개 벤치마크로 검증하는 것입니다.
 
-## 📊 Intra-Dataset 결과 (per-subject, paper-comparable metric)
+## 코드 구조
 
-### Protocol 1 — UBFC-rPPG 6:4 split (RhythmFormer Table 1 표준 비율, valid=test)
-
-| Dataset | Split mode | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
-|---|---|---:|---:|---:|---:|---:|---:|
-| **UBFC-rPPG** | subject-exclusive (1-32 vs 33-49) | E8 | **0.052** | **0.213** | **0.083** | **0.9999** | 17 |
-
-### Protocol 2 — 7:1:2 split (separate valid, OneCycleLR, 20 epochs)
-
-| Dataset | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
-|---|---:|---:|---:|---:|---:|---:|
-| **UBFC-rPPG** (separate valid) | E10 | **0.391** | **0.829** | **0.397** | **0.9960** | 9 |
-| **PURE** (random subject split, seed=42) | E11 | **0.769** | **1.069** | **1.081** | **0.9602** | 12 |
-
-→ PURE 의 경우 random shuffle 로 outlier subject 가 train 에 들어가 안정적 학습. UBFC 는 test set 축소로 약간 더 보수적 수치.
-
-### Paper 비교
-
-| 모델 | UBFC MAE | UBFC Pearson | PURE MAE | PURE Pearson |
-|---|---:|---:|---:|---:|
-| PhysNet (CVPR'20) | 1.81 | 0.96 | 2.10 | 0.99 |
-| TS-CAN (NeurIPS'20) | 1.70 | 0.99 | 1.30 | 0.99 |
-| EfficientPhys (WACV'23) | 1.14 | 0.99 | 1.33 | 0.97 |
-| PhysFormer (CVPR'22) | 0.40 | 0.99 | 1.10 | 0.99 |
-| RhythmFormer (PR'25) | 0.50 | 0.99 | 0.66 | 0.99 |
-| **BiPulseFormer 6:4 (우리)** | **0.052** | **0.9999** | — | — |
-| **BiPulseFormer 7:1:2 OC20 (우리)** | **0.391** | **0.9960** | **0.769** | **0.9602** |
-
-→ UBFC 에서 paper SOTA 압도. PURE 7:1:2 OC20 에서 PhysFormer (1.10) 보다 우수한 MAE 0.769. Pearson 0.96 은 test set 의 좁은 HR 분포 (std 3.79) 영향.
-
-## 📊 Cross-Dataset 결과 (per-subject)
-
-### Setup (2026-09-03 갱신)
-- **Train**: 80% of source dataset (subject-exclusive)
-- **Valid**: 20% of source dataset (best-epoch 선택, source-domain 기준)
-- **Test**: 100% of target dataset (entire)
-- **StepLR(step=50, gamma=0.5), 15 epochs**, constant α=1.0, β=1.0
-- Routing: `routing_mode='fft_power'` (HR-band FFT power 기반 region 선택),
-  `n_win=(1,4,4)` (16 windows, spatial 4×4), `topk=4`
-- 2026-09-03 fix: `_fft_power_region`의 fps 버그 수정 (patch stride로 나누지 않아
-  실제로는 HR 대역이 아닌 저주파 대역을 필터링하던 문제) — 아래 수치는 **수정 후
-  처음부터 재학습**한 결과. 자세한 라우팅 검증은 `results/routing_meaningfulness.md` 참고.
-
-### Cross 8:2 결과 (VALID-best 기준, `scripts/run_cross_82_fftfix.py`)
-
-| 방향 | Best Ep | MAE↓ | RMSE↓ | MAPE%↓ | Pearson↑ | n_subj |
-|---|---:|---:|---:|---:|---:|---:|
-| **PURE → UBFC-rPPG** | E3 | **5.462** | 14.317 | 5.008 | **0.686** | 42 |
-| **UBFC-rPPG → PURE** | E6 | 11.634 | 22.164 | 20.904 | 0.539 | 59 |
-
-→ fps 버그 수정으로 PURE→UBFC는 이전 기록(`phase12`, MAE 8.224) 대비 34% 개선. 다만
-UBFC→PURE는 거의 그대로(11.605→11.634) — 방향에 따라 비대칭적으로 나타남.
-
-### Paper 비교 (cross-dataset)
-
-| 모델 | PURE→UBFC MAE | PURE→UBFC ρ | UBFC→PURE MAE | UBFC→PURE ρ |
-|---|---:|---:|---:|---:|
-| PhysNet (CVPR'20) | 8.06 | 0.66 | 9.74 | 0.85 |
-| **BiPulseFormer cross 8:2 (우리)** | **5.462** | **0.686** | **11.634** | **0.539** |
-| RhythmFormer (PR'25) | 1.21 | 0.99 | 4.45 | 0.97 |
-| PhysFormer (CVPR'22) | 1.44 | 0.98 | 3.34 | 0.97 |
-
-→ PhysNet은 넘었지만 PhysFormer/RhythmFormer 대비 아직 3~4배 격차. 라우팅 자체는
-얼굴 중안부(눈-코-볼-입)를 정확히 선택하는 것으로 확인됐음에도 (`routing_meaningfulness.md`),
-성능 격차의 원인 후보:
-1. Top-k sparse routing (16개 중 4개, 25%) 이 intra-dataset 특화엔 도움이 되지만
-   cross-domain 일반화엔 불리할 수 있음 — full attention 대비 컨텍스트 손실
-2. Loss 가중치가 rPPG-Toolbox 단순화 버전(α=β=1.0 constant)이라 PhysFormer 원논문의
-   `α=0.1, β=1.0·5.0^(epoch/25)` 스케줄과 다름 (미시도)
-3. BatchNorm running stats 가 source 분포 그대로 target 에 적용됨 (미시도: target
-   데이터로 forward-only 재추정)
-4. PURE 8 subjects 만 학습 — 소규모·저다양성 source
-5. Best epoch 선택이 source-domain valid 기준이라 target 성능과 항상 일치하진 않음
-   (TEST Pearson이 epoch마다 크게 진동 — source overfit 신호)
-
-자세한 근거와 다음 단계는 `results/hyperparameter_recommendations.md`,
-`results/analysis_report_cross_dataset.md` 참고.
-
-## 🏗️ Architecture
-
-### 1. PhysFormer Baseline (Yu et al., CVPR 2022)
-
-```
-Input video (B, 3, 160, 128, 128)
-    ↓ Stem0/1/2 (3D Conv + BN + ReLU + MaxPool, 3 stages)
-    ↓ Patch Embedding (Conv3d 4×4×4)
-[B, 96, 40, 4, 4]
-    ↓ Transformer1 (4 blocks)  ← MHSA_TDC + FFN_ST
-    ↓ Transformer2 (4 blocks)
-    ↓ Transformer3 (4 blocks)
-[B, 96, 40, 4, 4]
-    ↓ Upsample×2 (2× temporal upsample) → [B, 48, 160, 4, 4]
-    ↓ GAP spatial → [B, 48, 160]
-    ↓ Conv1d → rPPG signal [B, 160]
+```text
+configs/protocol_v1.json     공통 실험 조건
+scripts/run_experiment.py   통합 학습 실행기
+scripts/summarize_runs.py   여러 seed의 완료 결과 집계
+scripts/plot_results.py     저장된 test HR 결과 시각화
+scripts/inspect_routing.py  validation 얼굴 라우팅 시각화
+scripts/check_setup.py      실제 입력 크기 forward/backward 검사
+src/protocol.py             설정 검증, 피험자 split, 실험 식별자
+src/experiment.py           공통 학습·validation·최종 test
+src/train.py                Pearson + 주파수 loss
+src/models/                 BiPulseFormer / PhysFormer
+src/data/rppg_dataset.py    데이터 로딩과 전처리
+src/evaluation*.py          영상별 및 클립별 HR 평가
+tests/                     split·수치 안정성·학습 경로 검증
+docs/legacy_scripts/       이전 실험 소스의 비실행 텍스트 보관본
 ```
 
-**핵심 컴포넌트:**
-- **CDC_T (Center-Difference Conv 3D)**: temporal convolution 의 center-difference 변형으로 motion-aware feature 추출
-- **MHSA_TDC**: TDC-based Q/K projection + Conv1×1 V projection + scaled softmax attention with `gra_sharp=2.0`
-- **FFN_ST**: 1×1 → BN → ELU → depthwise 3³ STConv → BN → ELU → 1×1 → BN
+## 고정 프로토콜 v1
 
-### 2. BiPulseFormer (BiFormer 적용 ANN 모델)
-
-PhysFormer 의 `MHSA_TDC` (full attention) 자리를 **`BiLevelRoutingAttention_TDC`** (sparse top-k routing attention) 로 교체.
-
-```python
-# Step 1: TDC-Q/K, Conv1×1-V (PhysFormer 동일)
-q = TDC(x), k = TDC(x), v = Conv1x1(x)
-
-# Step 2: Window 분할 → Region routing (BiFormer 추가)
-# (40, 4, 4) feature → (2, 2, 2) windows × (20, 2, 2) tokens
-# = 8 windows × 80 tokens
-q_window = window_partition(q)  # (B, 8, 80, C)
-k_window = window_partition(k)
-v_window = window_partition(v)
-
-# Step 3: Region-level routing (top-k)
-q_region = q_window.mean(dim=2)   # (B, 8, C)  region embedding
-k_region = k_window.mean(dim=2)
-A_region = q_region @ k_region.T / sqrt(C)  # (B, 8, 8) similarity
-top_k = 4
-_, top_k_idx = A_region.topk(top_k, dim=-1)  # (B, 8, 4)
-
-# Step 4: 각 query window 가 top-4 windows 의 K/V 만 attend (sparse)
-k_top = gather(k_window, top_k_idx)  # (B, 8, 4×80, C)
-v_top = gather(v_window, top_k_idx)
-
-# Step 5: Multi-head sparse attention with PhysFormer scale
-scores = q_window @ k_top.T / gra_sharp
-out = softmax(scores) @ v_top
-```
-
-**효과:**
-- Attention compute **50% 감소** (8 windows 중 top-4 만 attend)
-- Region routing 으로 의미 있는 spatial 영역에 집중
-- PhysFormer 의 다른 부분 (FFN_ST, Stem, predictor) 그대로
-
-## ⚙️ Training Setup
-
-**rPPG-Toolbox PhysFormerTrainer 셋업과 100% 정렬** ([reference](https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/trainer/PhysFormerTrainer.py)):
-
-### Protocol 1 — UBFC 6:4 (RhythmFormer Table 1 표준)
-| 항목 | 값 |
+| 항목 | 조건 |
 |---|---|
-| Split | 60% train / 40% test (valid = test) |
-| Optimizer | Adam (lr=1e-4, wd=5e-5) |
-| LR scheduler | StepLR(step=50, gamma=0.5) — 10ep 동안 constant |
-| Epochs | 10 |
-| α, β schedule | constant α=1.0, β=1.0 |
+| 데이터 | PURE, UBFC-rPPG, 30fps |
+| Cross | source 피험자 80% train / 20% valid, target 전체 test |
+| Intra | 피험자 60% train / 20% valid / 20% test |
+| Split | 피험자 ID 정렬 후 seed 42로 셔플, 실제 ID 저장 |
+| 반복 | 학습 seed 42, 43, 44; split은 동일 |
+| 입력 | 160 frames × 128 × 128, DiffNormalized |
+| PURE 정렬 | PPG timestamp를 영상 timestamp에 보간, 측정 범위 밖 영상은 제외 |
+| 얼굴 | 첫 프레임 HaarCascade, 1.5배 box, 실패 시 중앙 crop |
+| 증강 | train에만 수평 반전 |
+| Optimizer | Adam, lr=1e-4 고정, weight decay=5e-5 |
+| 학습 예산 | 20 epochs, batch=4, FP32, gradient clip=1.0 |
+| Loss | NegPearson + CE_frequency + KL_frequency, 가중치 각 1 |
+| 주파수 입력 | 차분 PPG를 cumsum + detrend로 복원한 뒤 loss/HR target 계산 |
+| HR 대역 | loss target·loss bins·평가 40–180 BPM (loss 상한 제외) |
+| 라우팅 | FFT magnitude, (1,4,4) windows, top-k=4, STE, tau=0.5 |
+| 모델 선택 | validation 클립별 HR RMSE 최소, 동률이면 이전 epoch 유지 |
+| Test | 학습 종료 후 validation-best 모델로 한 번 |
+| 지표 | 클립별 및 영상별 MAE/RMSE/MAPE/HR Pearson, 파형 Pearson |
 
-### Protocol 2 — 7:1:2 + OneCycleLR (paper 와 동등한 학습 setup)
-| 항목 | 값 |
-|---|---|
-| Split | 70% train / 10% valid / 20% test (subject-exclusive, separate valid) |
-| PURE split mode | random shuffle (seed=42) — outlier subject 07 이 train 에 자동 포함 |
-| Optimizer | Adam (lr=1e-4, wd=5e-5) |
-| LR scheduler | **OneCycleLR(max_lr=1e-4, epochs=20)** |
-| Epochs | **20** |
-| α, β schedule | epoch≤10: α=1.0, β=1.0 → epoch>10: α=0.05, β=5.0 (rPPG-Toolbox) |
-| Best epoch | min VALID per-clip RMSE (test-independent) |
+20epoch와 6:2:2는 공통 예산과 소규모 PURE validation 크기를 고려한 연구 설계입니다. 최적 조건이나 특정 논문의 재현 조건으로 주장하지 않습니다. [rPPG-Toolbox PhysFormer 학습기](https://github.com/ubicomplab/rPPG-Toolbox/blob/main/neural_methods/trainer/PhysFormerTrainer.py)를 참고했으며, v1에서는 고정 loss 가중치·공통 gradient clipping·일관된 HR 대역을 명시적으로 사용합니다.
 
-### 공통 항목
-| 항목 | 값 |
-|---|---|
-| Batch size | 4 |
-| Loss | α·NegPearson + β·(CE_freq + KL_dist) |
-| Output normalization | Per-sample: `rPPG = (rPPG - mean) / std` (axis=-1) |
-| Frequency loss target | Welch periodogram peak HR from label PPG |
-| Data preprocessing | DiffNormalized (rPPG-Toolbox 표준) |
-| Face crop | HaarCascade, 1.5× large box, static (first frame) |
-| Augmentation | RandomHorizontalFlip (train only) |
-| HR validity filter | 40 < HR < 180 BPM (PhysBench trick) |
-| Test eval | Sliding window (chunk_step=80, 2× overlap) |
-| HR estimation | DiffNormalized → cumsum + detrend(λ=100) + Butterworth(0.75-2.5Hz) + periodogram |
+## 실행
 
-## 📂 코드 구조
-<img width="645" height="273" alt="image" src="https://github.com/user-attachments/assets/02a09530-d4c2-4b0d-836c-1216f9390972" />
+```powershell
+python -m pip install -r requirements.txt
 
-```
-src/
-  models/
-    physformer_baseline.py      # PhysFormer (CVPR 2022) 공식 코드 포팅
-    bipulseformer.py            # PhysFormer + BiLevel Routing Attention (ANN)
-  data/
-    rppg_dataset.py             # PURE/UBFC-rPPG dataset
-                                #   PURE split modes: subject_exclusive (default),
-                                #     subject_exclusive_random (seed=42),
-                                #     session_per_subject
-  evaluation.py                 # rPPG-Toolbox per-subject 평가 (paper-comparable)
-  evaluation_per_clip.py        # per-clip 보조 평가 (5.3s clip)
-  train.py                      # NegPearsonLoss + FrequencyLoss (DLDL_softmax2)
-scripts/
-  run_intra_ubfc_bipulseformer.py        # UBFC 6:4 (RhythmFormer protocol) 학습
-  run_intra_712_onecycle.py              # 7:1:2 OneCycleLR 20ep (PURE+UBFC 통합)
-  run_cross_82_bipulseformer.py          # Cross 8:2 (PURE↔UBFC 양방향)
-  eval_mape_paper.py                      # per-subject MAPE 계산
-  eval_valid_vs_test_best_oc20.py        # valid-best vs test-best epoch 비교
+# 설정과 피험자 split 검사 (학습하지 않음)
+python scripts/run_experiment.py --source PURE --target UBFC-rPPG --source-root D:/PURE --target-root D:/UBFC-rPPG --output results/v1/pure_to_ubfc_bi_s42 --dry-run
+
+# BiPulseFormer cross 학습
+python scripts/run_experiment.py --source PURE --target UBFC-rPPG --source-root D:/PURE --target-root D:/UBFC-rPPG --output results/v1/pure_to_ubfc_bi_s42 --seed 42
+
+# 동일 조건 PhysFormer 비교
+python scripts/run_experiment.py --model physformer --source PURE --target UBFC-rPPG --source-root D:/PURE --target-root D:/UBFC-rPPG --output results/v1/pure_to_ubfc_phys_s42 --seed 42
+
+# Intra: source 내부에서 train / valid / test 분리
+python scripts/run_experiment.py --mode intra --source PURE --source-root D:/PURE --output results/v1/intra_pure_bi_s42
+
+python -m unittest discover -s tests -v
+python scripts/check_setup.py
 ```
 
-## 🚀 실행 방법
+반대 방향은 source/target과 경로를 바꿉니다. 각 모델·방향을 seed 42/43/44로 반복한 뒤 `python scripts/summarize_runs.py <seed42의 summary.json> <seed43의 summary.json> <seed44의 summary.json>`으로 집계합니다. 출력 폴더는 매번 새로 지정하며 기존 결과를 덮어쓰지 않습니다. Windows 기본 worker=0, 기본 장치 CUDA입니다. `--workers`, `--device cpu`로 변경할 수 있습니다.
 
-```bash
-# Protocol 1 — UBFC 6:4 (RhythmFormer Table 1)
-python scripts/run_intra_ubfc_bipulseformer.py        # UBFC intra 6:4
+저장물: 설정과 hash, 피험자 split, 실제 클립 목록, 환경/소스 hash, epoch별 train loss와 validation 지표, `best.pt`, `last.pt`, 최종 test 예측과 `summary.json`. 체크포인트에 모델 설정을 포함합니다. `last.pt`는 optimizer를 포함하지만 RNG/loader 상태까지 복원하는 자동 재개는 아직 지원하지 않습니다.
 
-# Protocol 2 — 7:1:2 + OneCycleLR + 20 epochs (paper 와 동등한 학습 setup)
-python scripts/run_intra_712_onecycle.py              # PURE + UBFC 통합
+## 결과 해석
 
-# Cross 8:2 — Train on 80% source, valid 20% source, test 100% target
-python scripts/run_cross_82_bipulseformer.py          # PURE↔UBFC 양방향
+- PURE의 영상 수(`n_recordings`)와 피험자 수(`n_subjects`)를 구분합니다. 영상 전체 HR 지표와 짧은 클립 HR·파형 복원 지표를 함께 봅니다.
+- 논문과 비교할 때 split, 입력/평가 길이, 전처리, HR 대역, GT 산출법을 맞춰야 합니다. 기존 숫자만으로 SOTA 달성을 선언하지 않습니다.
+- target 결과를 보고 epoch나 split을 다시 고르지 않습니다. 이미 여러 번 관찰한 기존 target은 완전히 새로운 blind test가 아니므로 최종 주장은 새 외부 데이터 또는 사전 고정 추가 split에서도 검증합니다.
+- STE 학습은 dense attention, 추론은 sparse gather를 사용합니다. 학습 비용 절감이나 에너지 절감을 현재 주장하지 않습니다.
+- `fft_magnitude`는 실제 연산을 표현하는 이름입니다. `fft_power`는 기존 설정 호환용 별칭이며 제곱 power가 아닙니다.
+- 기존 `results/`는 이전 프로토콜의 기록입니다. v1과 조건이 달라 직접 합쳐 비교하지 않습니다. 이전 실행 소스는 `docs/legacy_scripts/`에 보관했습니다.
+- UBFC-PHYS 로더는 보존했지만 영상별 FPS/시간 정렬 및 전체 manifest 검증 전에는 v1 대상에 포함하지 않습니다.
 
-# 결과 평가 (per-subject + per-clip + MAPE)
-python scripts/eval_mape_paper.py                     # 모든 saved checkpoints
-python scripts/eval_valid_vs_test_best_oc20.py        # 7:1:2 의 valid-best vs test-best
-```
+자세한 변경 기준은 [연구 프로토콜](docs/research_protocol.md)을 참고하세요.
 
-결과는 `results/intra_{dataset}_bipulseformer{,_712_oc20}/` 에 저장됩니다:
-- `log.txt` — 학습 로그 (모든 epoch 결과)
-- `summary.json` — best epoch + full history (JSON)
-- `checkpoints/{model}_epoch{N}.pt` — best epoch checkpoint
-
-## 핵심 기여
-
-1. **BiFormer 를 PhysFormer 에 적용** (ANN, BiPulseFormer):
-   - Sparse attention (top-k=4 of 8 windows)
-   - Attention compute 50% 감소
-
-2. **rPPG-Toolbox 호환 평가 인프라**:
-   - per-subject 평가 (cumsum + detrend + Butterworth + periodogram)
-   - Sliding window evaluation (chunk_step=80, 2× overlap)
-   - Welch periodogram 기반 HR target/metric
-
-3. **2 가지 평가 protocol 지원**:
-   - UBFC 6:4 RhythmFormer Table 1 (다른 paper 와 직접 비교)
-   - 7:1:2 + OneCycleLR + 20 epochs (separate valid, no test-peek)
-
-4. **PURE 의 outlier subject 07 처리**:
-   - Subject-exclusive random shuffle (seed=42) 로 high-HR subject 가 train 에 들어가는 split 확보 (Protocol 2)
-
-## 📚 References
-
-- **PhysFormer**: Yu et al., "PhysFormer: Facial Video-based Physiological Measurement with Temporal Difference Transformer", CVPR 2022. [arXiv:2111.12082](https://arxiv.org/abs/2111.12082)
-- **BiFormer**: Zhu et al., "BiFormer: Vision Transformer with Bi-Level Routing Attention", CVPR 2023. [arXiv:2303.08810](https://arxiv.org/abs/2303.08810)
-- **rPPG-Toolbox**: Liu et al., "rPPG-Toolbox: Deep Remote PPG Toolbox", NeurIPS 2023. [arXiv:2210.00716](https://arxiv.org/abs/2210.00716)
+시각화: `python scripts/plot_results.py <summary.json>`은 저장된 test 예측만 사용합니다. `python scripts/inspect_routing.py --run <실험 폴더>`는 체크포인트 설정으로 source validation 얼굴의 라우팅을 보여줍니다.

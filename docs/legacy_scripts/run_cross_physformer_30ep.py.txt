@@ -1,0 +1,260 @@
+"""
+Cross-dataset 학습-평가 — PhysFormer baseline (no BiFormer, full MHSA attention),
+**30 epoch** + gradient clipping 없음.
+
+배경: rPPG-Toolbox NeurIPS 2023 논문 본문(3.4 Benchmarking)이 "neural models
+utilized... 30 epochs... except where noted in the GitHub repository"라고 명시함.
+지금까지 GitHub의 PURE_PURE_UBFC-rPPG_PHYSFORMER_BASIC.yaml (EPOCHS=10) 을 따라
+10 epoch로만 재현했는데, 논문 본문 fallback 값인 30 epoch는 아직 검증 안 함.
+
+특히 α/β loss schedule 이 `epoch>10: a=0.05, b=5.0` 으로 바뀌게 설계돼 있는데,
+10 epoch 학습으로는 이 분기가 단 한 번도 발동하지 않는다 — 즉 지금까지의 재현은
+이 스케줄의 절반(첫 구간)만 테스트한 것과 같다. 30 epoch로 돌리면 나머지 20 epoch
+(전체의 2/3) 동안 두 번째 loss 구간이 실제로 작동한다.
+
+결과 리포트는 논문 Table 2/7 과 같은 형식(MAE±SE, RMSE±SE, MAPE±SE, Pearson±SE)
+으로 출력한다 (SE 정의는 논문 Appendix F.1 그대로: src/evaluation.py 참고).
+
+목표 수치 (rPPG-Toolbox 논문 Table 7):
+  PURE→UBFC-rPPG:  MAE 1.44±0.54  RMSE 3.77±7.93  MAPE 1.66±0.62  Pearson 0.98±0.03
+  UBFC-rPPG→PURE:  MAE 12.92±2.69 RMSE 24.36±132.24 MAPE 23.92±5.22 Pearson 0.47±0.12
+"""
+import os
+import sys
+import io
+import json
+import random
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
+import numpy as np
+import torch
+import torch.optim as optim
+from scipy.signal import welch
+
+from src.models.physformer_baseline import ViT_ST_ST_Compact3_TDC_gra_sharp
+from src.data.rppg_dataset import get_dataloader
+from src.train import NegPearsonLoss, FrequencyLoss
+from src.evaluation import evaluate_per_subject
+
+
+EPOCHS = 30                # rPPG-Toolbox 논문 본문 3.4절 기본값
+BATCH_SIZE = 4
+LR = 1e-4
+WD = 5e-5
+STEP_SIZE = 50
+GAMMA = 0.5
+GRA_SHARP = 2.0
+DETECTION_FREQ = 0
+SEED = 42
+FPS = 30
+PURE_PATH = 'D:\\PURE'
+UBFC_PATH = 'D:\\UBFC-rPPG'
+
+EXPERIMENTS = [
+    ('PURE', PURE_PATH, 'UBFC-rPPG', UBFC_PATH),
+    ('UBFC-rPPG', UBFC_PATH, 'PURE', PURE_PATH),
+]
+
+RESULT_DIR = 'results/cross_physformer_30ep'
+LOG = os.path.join(RESULT_DIR, 'log.txt')
+
+# paper 목표치 (rPPG-Toolbox Table 7) — 로그에 같이 찍어서 바로 대조
+PAPER_TARGET = {
+    'PURE -> UBFC-rPPG': dict(MAE=1.44, MAE_se=0.54, RMSE=3.77, RMSE_se=7.93,
+                              MAPE=1.66, MAPE_se=0.62, Pearson=0.98, Pearson_se=0.03),
+    'UBFC-rPPG -> PURE': dict(MAE=12.92, MAE_se=2.69, RMSE=24.36, RMSE_se=132.24,
+                              MAPE=23.92, MAPE_se=5.22, Pearson=0.47, Pearson_se=0.12),
+}
+
+
+def log(msg):
+    with open(LOG, 'a', encoding='utf-8') as f:
+        f.write(msg + '\n')
+    print(msg, flush=True)
+
+
+def get_hr_welch(y, sr=30, hr_min=30, hr_max=180):
+    y = np.asarray(y, dtype=np.float64)
+    if np.std(y) < 1e-9:
+        return 0.0
+    p, q = welch(y, sr, nfft=1e5 / sr, nperseg=int(np.min((len(y) - 1, 256))))
+    mask = (p > hr_min / 60) & (p < hr_max / 60)
+    if not mask.any():
+        return 0.0
+    return float(p[mask][np.argmax(q[mask])] * 60)
+
+
+def _seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+def fmt_paper_row(m):
+    return (f"MAE {m['MAE_bpm']:.2f}±{m['MAE_se']:.2f}  "
+            f"RMSE {m['RMSE_bpm']:.2f}±{m['RMSE_se']:.2f}  "
+            f"MAPE {m['MAPE_pct']:.2f}±{m['MAPE_se']:.2f}  "
+            f"Pearson {m['Pearson']:.2f}±{m['Pearson_se']:.2f}")
+
+
+def run_experiment(train_name, train_path, test_name, test_path):
+    label = f"{train_name} -> {test_name}"
+    log("\n" + "=" * 70)
+    log(f"[*] {label}  (30 epoch, no grad clip, rPPG-Toolbox paper 본문 기본값)")
+    log("=" * 70)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    train_loader = get_dataloader(train_name, train_path, BATCH_SIZE, clip_len=160,
+                                  face_crop=True, shuffle=True,
+                                  data_type='diff_normalized', random_hflip=True,
+                                  hr_filter=True, fps=FPS,
+                                  dynamic_detection_freq=DETECTION_FREQ,
+                                  split_range=(0.0, 0.8))
+    valid_loader = get_dataloader(train_name, train_path, BATCH_SIZE, clip_len=160,
+                                  face_crop=True, shuffle=False,
+                                  data_type='diff_normalized',
+                                  dynamic_detection_freq=DETECTION_FREQ,
+                                  split_range=(0.8, 1.0))
+    test_loader = get_dataloader(test_name, test_path, BATCH_SIZE, clip_len=160,
+                                 face_crop=True, shuffle=False,
+                                 data_type='diff_normalized', chunk_step=80,
+                                 dynamic_detection_freq=DETECTION_FREQ)
+    log(f"  train clips: {len(train_loader.dataset)} (80% of {train_name})")
+    log(f"  valid clips: {len(valid_loader.dataset)} (20% of {train_name}) - used for best-epoch selection")
+    log(f"  test  clips: {len(test_loader.dataset)} ({test_name})")
+
+    model = ViT_ST_ST_Compact3_TDC_gra_sharp(
+        patches=(4, 4, 4), dim=96, ff_dim=144, num_heads=4, num_layers=12,
+        dropout_rate=0.1, theta=0.7, image_size=(160, 128, 128),
+    ).to(device)
+
+    optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STEP_SIZE, gamma=GAMMA)
+    pearson_criterion = NegPearsonLoss()
+    freq_criterion = FrequencyLoss(fps=FPS)
+    log(f"  model params: {sum(p.numel() for p in model.parameters())}")
+    log(f"  grad_clip: NONE")
+    log(f"  EPOCHS: {EPOCHS}  schedule: epoch<=10 -> a=1.0,b=1.0; epoch>10 -> a=0.05,b=5.0 "
+        f"(20/{EPOCHS} epoch 가 두번째 구간)")
+
+    best_valid_rmse = float('inf')
+    best_test = None
+    best_epoch = 0
+    history = []
+
+    for epoch in range(EPOCHS):
+        if epoch > 10:
+            a, b = 0.05, 5.0
+        else:
+            a, b = 1.0, 1.0
+        log(f"\n[*] Epoch {epoch+1}/{EPOCHS}  alpha={a}, beta={b:.4f}")
+
+        model.train()
+        epoch_loss, nb = 0.0, 0
+        for inputs, labels in train_loader:
+            inputs = inputs.to(device, non_blocking=True); labels = labels.to(device, non_blocking=True)
+            hr_target = torch.tensor(
+                [get_hr_welch(labels[k].cpu().numpy(), sr=FPS) for k in range(labels.shape[0])],
+                dtype=torch.float32, device=device,
+            )
+            optimizer.zero_grad()
+            rPPG, _, _, _ = model(inputs, gra_sharp=GRA_SHARP)
+            rPPG = (rPPG - torch.mean(rPPG, dim=-1, keepdim=True)) / \
+                   (torch.std(rPPG, dim=-1, keepdim=True) + 1e-8)
+            loss_p = pearson_criterion(rPPG, labels)
+            loss_ce, loss_ld = freq_criterion(rPPG, hr_target)
+            loss = a * loss_p + b * (loss_ce + loss_ld)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += float(loss.item()); nb += 1
+        scheduler.step()
+        avg_loss = epoch_loss / max(1, nb)
+
+        def evaluate(loader):
+            model.eval()
+            all_p, all_g = [], []
+            with torch.no_grad():
+                for inputs, labels in loader:
+                    inputs = inputs.to(device, non_blocking=True); labels = labels.to(device, non_blocking=True)
+                    rPPG, _, _, _ = model(inputs, gra_sharp=GRA_SHARP)
+                    rPPG = (rPPG - torch.mean(rPPG, dim=-1, keepdim=True)) / \
+                           (torch.std(rPPG, dim=-1, keepdim=True) + 1e-8)
+                    all_p.append(rPPG.cpu()); all_g.append(labels.cpu())
+            preds = torch.cat(all_p).numpy(); gts = torch.cat(all_g).numpy()
+            m = evaluate_per_subject(preds, gts, loader.dataset.samples,
+                                     fs=FPS, diff_flag=True, low_pass=0.75, high_pass=2.5)
+            return m
+
+        valid_m = evaluate(valid_loader)
+        test_m = evaluate(test_loader)
+
+        ckpt_dir = os.path.join(RESULT_DIR, 'checkpoints')
+        os.makedirs(ckpt_dir, exist_ok=True)
+        safe_label = label.replace(' -> ', '_to_').replace(' ', '')
+        torch.save(model.state_dict(), os.path.join(ckpt_dir, f'{safe_label}_epoch{epoch+1}.pt'))
+
+        history.append({'epoch': epoch + 1, 'avg_loss': avg_loss, 'valid': valid_m, 'test': test_m})
+        log(f"Epoch {epoch+1}/{EPOCHS}: Train loss {avg_loss:.4f}")
+        log(f"  VALID: {fmt_paper_row(valid_m)}  (n={valid_m['n_subjects']})")
+        log(f"  TEST : {fmt_paper_row(test_m)}  (n={test_m['n_subjects']})")
+
+        if valid_m['RMSE_bpm'] < best_valid_rmse:
+            best_valid_rmse = valid_m['RMSE_bpm']
+            best_test = test_m
+            best_epoch = epoch + 1
+
+    log(f"\n-> Best for {label}: epoch {best_epoch} (valid HR RMSE {best_valid_rmse:.3f})")
+    log(f"   TEST (paper format): {fmt_paper_row(best_test)}")
+    target = PAPER_TARGET.get(label)
+    if target:
+        log(f"   Paper target      : MAE {target['MAE']:.2f}±{target['MAE_se']:.2f}  "
+            f"RMSE {target['RMSE']:.2f}±{target['RMSE_se']:.2f}  "
+            f"MAPE {target['MAPE']:.2f}±{target['MAPE_se']:.2f}  "
+            f"Pearson {target['Pearson']:.2f}±{target['Pearson_se']:.2f}")
+    return best_test, best_epoch, history
+
+
+def main():
+    os.makedirs(RESULT_DIR, exist_ok=True)
+    open(LOG, 'w', encoding='utf-8').close()
+    _seed_everything(SEED)
+    log(f"[*] Seed fixed to {SEED}")
+    log(f"[*] PhysFormer baseline (full MHSA, no BiFormer) — 30 epoch, no grad clip")
+
+    all_results = []
+    for train_n, train_p, test_n, test_p in EXPERIMENTS:
+        best, best_epoch, history = run_experiment(train_n, train_p, test_n, test_p)
+        all_results.append({
+            'name': f"{train_n} -> {test_n}",
+            'best': best, 'best_epoch': best_epoch, 'history': history,
+        })
+
+    log("\n" + "=" * 80)
+    log("[*] 최종 결과 — PhysFormer baseline, 30 epoch, no grad clip (paper 형식)")
+    log("=" * 80)
+    for r in all_results:
+        b = r['best']
+        target = PAPER_TARGET.get(r['name'], {})
+        log(f"  {r['name']}:")
+        log(f"    Ours : {fmt_paper_row(b)}  (E{r['best_epoch']})")
+        if target:
+            log(f"    Paper: MAE {target['MAE']:.2f}±{target['MAE_se']:.2f}  "
+                f"RMSE {target['RMSE']:.2f}±{target['RMSE_se']:.2f}  "
+                f"MAPE {target['MAPE']:.2f}±{target['MAPE_se']:.2f}  "
+                f"Pearson {target['Pearson']:.2f}±{target['Pearson_se']:.2f}")
+
+    with open(os.path.join(RESULT_DIR, 'summary.json'), 'w', encoding='utf-8') as f:
+        json.dump(all_results, f, indent=2)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,8 +1,8 @@
-"""Per-clip HR metric (PhysFormer / RhythmFormer paper standard).
+"""Auxiliary fixed-length per-clip HR metrics.
 
 Each 5.3s clip (160 frames) → 1 HR estimate via FFT/periodogram peak.
 MAE = mean(|pred_hr - gt_hr|) over ALL clips (not subjects).
-This is the metric used in PhysFormer, RhythmFormer, Contrast-Phys, etc.
+Comparison with publications requires matching their window and split protocol.
 """
 import numpy as np
 import scipy.signal
@@ -27,11 +27,16 @@ def _fft_hr_per_clip(signal, fs=30, low_pass=0.75, high_pass=2.5):
 
 def evaluate_per_clip(preds_array, gts_array, fs=30, diff_flag=True,
                       low_pass=0.75, high_pass=2.5):
-    """Per-clip HR MAE — PhysFormer/RhythmFormer paper standard.
+    """Per-clip HR metrics for this repository's configured window length.
 
     preds_array, gts_array: (N_clips, T) — model output and labels per clip
     Returns dict with MAE, RMSE, MAPE, Pearson(HR) over N_clips pairs.
     """
+    if (len(preds_array) == 0 or np.shape(preds_array) != np.shape(gts_array)
+            or np.ndim(preds_array) != 2):
+        raise ValueError('Expected matching nonempty (N,T) prediction and label arrays')
+    if not np.isfinite(preds_array).all() or not np.isfinite(gts_array).all():
+        raise ValueError('Non-finite evaluation signals')
     pred_hrs, gt_hrs = [], []
     for i in range(len(preds_array)):
         pred = preds_array[i].astype(np.float64)

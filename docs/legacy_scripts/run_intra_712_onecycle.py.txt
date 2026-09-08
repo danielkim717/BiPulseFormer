@@ -1,4 +1,4 @@
-﻿"""BiPulseFormer intra 7/1/2 — rPPG-Toolbox 표준 (OneCycleLR + 20 epochs).
+"""BiPulseFormer intra 7/1/2 — rPPG-Toolbox 표준 (OneCycleLR + 20 epochs).
 
 PURE: subject-exclusive RANDOM (seed=42)
   TRAIN (0.0-0.7): 7 subjects (03,04,06,07,08,09,10)  - subject 07 outlier 포함
