@@ -1,5 +1,7 @@
 # 코드 정리 결과 — 2026-09-08
 
+> Historical experiment notes. For the current method and results, start with the [repository overview](../README.md) and [documentation map](README.md). These notes are not the current execution plan.
+
 ## 변경
 
 - 이전 자동 튜닝/워크플로우, 관련 계획서·논문 파일·전용 결과 및 잔여 compiled 모듈을 제거했다. 사용하지 않는 의존성도 제거했다.

@@ -1,5 +1,11 @@
 ﻿"""
-BiPulseFormer — PhysFormer (CVPR 2022, Yu et al.) 의 공식 구현을 거의 그대로 유지하되, MultiHeadedSelfAttention_TDC_gra_sharp 만 BiLevelRoutingAttention_TDC_gra_sharp 로 교체한 ablation 모델.
+BiPulseFormer — frequency-guided region routing for video-based pulse estimation.
+
+The reported configuration summarizes temporal FFT magnitudes of learned Q/K
+features inside a configured HR band, ranks region affinities, and gathers K/V
+tokens from top-k regions for sparse attention at inference. This biases routing
+toward pulse-related temporal activity; anatomical relevance is not established
+by the routing mechanism alone. See docs/method.md for the executed settings.
 
 원본:
   https://github.com/ZitongYu/PhysFormer/blob/main/model/transformer_layer.py
@@ -11,13 +17,15 @@ BiPulseFormer — PhysFormer (CVPR 2022, Yu et al.) 의 공식 구현을 거의 
     patch_embedding, transformer1/2/3, upsample, ConvBlockLast,
     init_weights, forward signature) 모두 PhysFormer 원본 그대로
 
-BiLevel Routing Attention (Zhu et al., CVPR 2023) 적용 방식:
+BiFormer-inspired region routing (Zhu et al., CVPR 2023):
   Q,K,V 추출은 동일 (TDC-Q, TDC-K, Conv1x1-V), 단 attention 단계에서
-    1) Q,K 를 window 단위로 평균 내 q_region, k_region 산출
+    1) fft_magnitude: spatial mean then HR-band temporal FFT magnitude descriptors;
+       mean mode remains available as a separate configuration
     2) q_region @ k_region.T 로 region similarity 계산, 각 query window 마다
        상위 k 개의 key window 만 참조 (top-k routing)
     3) 그 k×win_size 토큰만 key/value 로 사용해 multi-head softmax 수행
-  PhysFormer 의 gra_sharp (=2.0) scale 은 그대로 유지하여 fair comparison.
+  Retains PhysFormer's gra_sharp (=2.0) scale. Matching one parameter does not
+  establish full protocol equivalence. STE training uses dense attention tensors.
 """
 import math
 from typing import Optional
@@ -149,8 +157,8 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
     def _fft_power_region(self, feat_w, lt, lh, lw):
         """Mean FFT magnitude in routing_band; historical method name retained.
 
-        feat_w: (B, S, win=lt*lh*lw, C) → (B, S, C) HR-band power embedding.
-        rPPG 신호 강도가 강한 region이 routing source/target으로 선택되도록.
+        feat_w: (B, S, win=lt*lh*lw, C) → (B, S, C) magnitude descriptor.
+        The pulse-band descriptor guides routing; it is not an anatomical label.
         """
         B, S, win, C = feat_w.shape
         # Reshape to separate temporal/spatial inside window
@@ -159,13 +167,13 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
         feat_t = feat.mean(dim=3)
         # Temporal FFT along lt → (B, S, lt//2+1, C)
         fft = torch.fft.rfft(feat_t.float(), dim=2).abs()
-        # HR band mask (0.7-3.0 Hz)
+        # Configured HR-band mask, evaluated using the feature-token FPS.
         freqs = torch.fft.rfftfreq(lt, 1.0 / self.fps).to(feat_w.device)
         hr_mask = (freqs >= self.routing_band[0]) & (freqs <= self.routing_band[1])
         if hr_mask.sum() == 0:
             # Window too short → fallback to mean
             return feat_w.mean(dim=2)
-        # Mean power in HR band → (B, S, C)
+        # Mean magnitude in HR band → (B, S, C), not squared power.
         return fft[:, :, hr_mask].mean(dim=2)
 
     def _window_reverse(self, x_w, t, h, w, lt, lh, lw):
@@ -199,7 +207,7 @@ class BiLevelRoutingAttention_TDC_gra_sharp(nn.Module):
 
         # Region routing
         if self.routing_mode in ('fft_power', 'fft_magnitude'):
-            # Phase 2: HR-band FFT power per window
+            # HR-band temporal FFT magnitude descriptor per window.
             q_r = self._fft_power_region(q_w, lt, lh, lw)
             k_r = self._fft_power_region(k_w, lt, lh, lw)
         else:

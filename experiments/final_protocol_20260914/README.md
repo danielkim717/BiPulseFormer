@@ -2,6 +2,8 @@
 
 This package contains the exact implementation used for the completed PURE seed42 results reported on 2026-09-17. It is an audit archive, not a replacement for an active experiment directory. Training and data preparation do not run when importing this package or checking its hashes.
 
+New readers: [method and routing equations](../../docs/method.md) · [getting started](../../docs/getting_started.md) · [documentation map](../../docs/README.md).
+
 ## Contents
 
 - `results.json`: all four completed PURE target tests, including both direct/restored candidates, per-recording HR pairs, clip metrics, PHYS task metrics, subject bootstrap intervals, checkpoint and original summary hashes, and the remaining queue status at export time.

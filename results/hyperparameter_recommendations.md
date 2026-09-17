@@ -1,5 +1,7 @@
 # BiPulseFormer Cross-Dataset 학습 — Hyperparameter 권장사항
 
+> Historical experiment notes. For the current method and results, start with the [repository overview](../README.md) and [documentation map](../docs/README.md). These notes are not the current execution plan.
+
 작성일: 2026-05-24
 근거: `cross_82_pure_to_ubfc_const30` (E1~E28) 학습 추세 분석
 

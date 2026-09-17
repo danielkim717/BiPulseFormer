@@ -1,5 +1,7 @@
 # BiLevel Routing — "의미있는 라우팅"의 수치 기준과 실측값
 
+> Historical experiment notes. For the current method and results, start with the [repository overview](../README.md) and [documentation map](../docs/README.md). These notes are not the current execution plan.
+
 작성일: 2026-09-03
 관련: `.claude/plans/encapsulated-booping-micali.md` Phase 1e
 
