@@ -2,6 +2,34 @@
 
 PhysFormer의 temporal-difference attention에 BiLevel Routing Attention을 결합한 영상 기반 rPPG 연구 코드입니다. 목표는 고정된 실험 조건에서 성능을 개선하고 동일 조건의 비교 모델 및 공개 벤치마크로 검증하는 것입니다.
 
+## 현재 cross 결과 — 2026-09-17
+
+**PURE로 학습한 BiPulseFormer direct는 rPPG-Toolbox의 PhysFormer 보고값보다 PURE→UBFC-rPPG 및 PURE→UBFC-PHYS에서 recording HR 지표가 수치상 좋았습니다.** 다른 논문의 더 강한 PhysFormer 재현값과 조건 차이도 함께 공개합니다. 이는 문헌 참고 비교이며 동일 조건 PhysFormer 실측이나 라우팅 기여의 검증은 아닙니다.
+
+아래는 seed42, source validation으로 선택한 epoch2의 결과입니다. MAE/RMSE는 BPM, MAPE는 %입니다. 문헌은 video 단위, 우리 결과는 recording 단위입니다.
+
+| 학습 → 평가 | 모델 / 출처 | MAE ↓ | RMSE ↓ | MAPE ↓ | Pearson ↑ |
+|---|---|---:|---:|---:|---:|
+| PURE → UBFC-rPPG | **BiPulseFormer direct (주 결과)** | **1.088** | **2.530** | **1.226** | **0.989** |
+| PURE → UBFC-rPPG | BiPulseFormer restored | 1.423 | 3.110 | 1.590 | 0.985 |
+| PURE → UBFC-rPPG | PhysFormer, Toolbox Table 7 | 1.440 | 3.770 | 1.660 | 0.980 |
+| PURE → UBFC-rPPG | PhysFormer, FactorizePhys Table 2 | 1.010 | 2.400 | 1.210 | 0.990 |
+| PURE → UBFC-PHYS | **BiPulseFormer direct (주 결과)** | **4.901** | **9.007** | **6.588** | **0.743** |
+| PURE → UBFC-PHYS | BiPulseFormer restored | 5.767 | 10.678 | 7.608 | 0.647 |
+| PURE → UBFC-PHYS | PhysFormer, Toolbox Table 8 | 6.040 | 9.770 | 7.670 | 0.650 |
+
+문헌 출처: [rPPG-Toolbox, NeurIPS 2023, Table 7·8](https://proceedings.neurips.cc/paper_files/paper/2023/file/d7d0d548a6317407e02230f15ce75817-Paper-Datasets_and_Benchmarks.pdf#page=21), [FactorizePhys, arXiv v1, Table 2](https://arxiv.org/html/2411.01542v1#S4.T2). 모두 해당 저자들의 PhysFormer 재현값입니다.
+
+Toolbox 중심값 대비 direct의 MAE/RMSE는 rPPG에서 **24.4%/32.9%**, PHYS에서 **18.9%/7.8%** 낮습니다. FactorizePhys의 PhysFormer PURE→rPPG 재현값보다는 오차가 높습니다. 통계적 유의성이나 SOTA를 주장하지 않습니다.
+
+- PURE 두 loss 후보의 20epoch 학습과 네 target test가 완료됐습니다. 두 후보 모두 source recording RMSE 동률이어서 사전에 고정한 direct 우선 규칙으로 주 결과를 정했습니다.
+- PHYS는 원본 56명·168영상을 검증하고, Toolbox Appendix H 제외 목록을 적용한 **48명·101영상(T1=42/T2=26/T3=33)**을 평가했습니다. PHYS source는 train38명/valid10명입니다.
+- PHYS restored의 20epoch 학습 및 PHYS→PURE·UBFC-rPPG test는 진행/대기 중입니다. PHYS direct는 학습 HR이 고정 loss 구간 밖이어서 부적격이며 해당 두 test 결과는 생성하지 않습니다.
+- 이 결과는 **2026-09-14 고정 프로토콜**입니다. 아래 v1 실행기와 구분합니다. PURE train03–10/valid01–02, 20epochs, source recording RMSE 선택, stride80 추론, 공통 GT·평가 구간·36–198 BPM scorer를 사용합니다. 학습·loss·crop/resize·정규화·overlap 및 논문 당시 실행 환경 차이를 명시합니다.
+- 한 seed라 seed 간 SD는 산출할 수 없습니다. target은 이전 탐색에서도 관찰됐으므로 완전히 새로운 blind test로 표현하지 않습니다.
+
+[현재 결과·PHYS task·clip·남은 실험](docs/results_20260917.md) · [실행 코드와 해시가 포함된 공개 패키지](experiments/final_protocol_20260914/README.md) · [고정 프로토콜](docs/final_protocol_20260914.md)
+
 ## 코드 구조
 
 ```text
@@ -21,7 +49,9 @@ tests/                     split·수치 안정성·학습 경로 검증
 docs/legacy_scripts/       이전 실험 소스의 비실행 텍스트 보관본
 ```
 
-## 고정 프로토콜 v1
+## 이전 고정 프로토콜 v1
+
+이 절과 아래 실행 예시는 이전 v1 실험용입니다. 위의 현재 결과를 생성하는 코드는 `experiments/final_protocol_20260914/source/`에 별도로 보존했습니다.
 
 | 항목 | 조건 |
 |---|---|
@@ -78,8 +108,8 @@ python scripts/check_setup.py
 - target 결과를 보고 epoch나 split을 다시 고르지 않습니다. 이미 여러 번 관찰한 기존 target은 완전히 새로운 blind test가 아니므로 최종 주장은 새 외부 데이터 또는 사전 고정 추가 split에서도 검증합니다.
 - STE 학습은 dense attention, 추론은 sparse gather를 사용합니다. 학습 비용 절감이나 에너지 절감을 현재 주장하지 않습니다.
 - `fft_magnitude`는 실제 연산을 표현하는 이름입니다. `fft_power`는 기존 설정 호환용 별칭이며 제곱 power가 아닙니다.
-- 기존 `results/`는 이전 프로토콜의 기록입니다. v1과 조건이 달라 직접 합쳐 비교하지 않습니다. 이전 실행 소스는 `docs/legacy_scripts/`에 보관했습니다.
-- UBFC-PHYS 로더는 보존했지만 영상별 FPS/시간 정렬 및 전체 manifest 검증 전에는 v1 대상에 포함하지 않습니다.
+- 과거 프로토콜의 성능과 실패는 해당 실행 이력으로 보존합니다. 현재 cross 성능을 과거의 낮은 결과 하나로 요약하거나 서로 다른 프로토콜의 수치를 합산하지 않습니다.
+- 현재 PHYS 평가에는 검증을 마친 48명·101영상 선별 집합과 FS35를 사용합니다. v1의 PURE/UBFC-rPPG 30fps 실행 예시와 구분합니다.
 
 자세한 변경 기준은 [연구 프로토콜](docs/research_protocol.md)을 참고하세요.
 

@@ -1,5 +1,7 @@
 # 연구 프로토콜과 변경 기준
 
+> 이 문서는 이전 v1 설계와 당시 계획의 이력입니다. 현재 실행은 [2026-09-14 고정 프로토콜](final_protocol_20260914.md), 완료 결과는 [2026-09-17 결과](results_20260917.md)를 따릅니다. 아래 추가 seed와 ablation 목록은 현재 실행 중이라는 뜻이 아닙니다.
+
 ## 고정과 탐색
 
 `configs/protocol_v1.json`을 BiPulseFormer와 PhysFormer의 공통 기준으로 사용한다. 20epoch, 고정 LR/loss 가중치를 사용한다. PURE에서 한 사람만으로 validation을 구성하는 변동성을 줄이기 위해 intra 6:2:2를 사용한다. Cross는 source 8:2와 target 전체이다. split seed는 학습 seed와 분리한다.
