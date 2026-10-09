@@ -1,4 +1,7 @@
-﻿"""
+# 파일 역할: PhysFormer 비교 모델 구조
+# 연결과 사용: 동일 프로젝트 환경에서 비교할 PhysFormer 계열 모델을 정의합니다. README의 논문 인용 성능과 구분합니다.
+# 파일 안내: docs/FILE_GUIDE.md
+"""
 PhysFormer (Yu et al., CVPR 2022) ??怨듭떇 GitHub 肄붾뱶??吏곸젒 ?ы똿.
 
 ?먮낯:
