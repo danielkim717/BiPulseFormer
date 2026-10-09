@@ -1,3 +1,6 @@
+# 파일 역할: 맥파 학습 손실과 주파수 정답 계산
+# 연결과 사용: 파형 상관관계와 주파수 손실에 필요한 계산을 제공합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """
 Loss functions used by the active training pipeline.
 
