@@ -1,3 +1,6 @@
+# 파일 역할: 과거 v1 실험의 학습 평가 흐름
+# 연결과 사용: 설정과 피험자 분할을 고정하고 검증 자료에서 모델을 고른 뒤 테스트 결과를 저장합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Shared training engine. The target is evaluated only after validation selection."""
 import json
 import os
