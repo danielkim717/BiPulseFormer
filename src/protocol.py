@@ -1,3 +1,6 @@
+# 파일 역할: 실험 설정과 피험자 분할 관리
+# 연결과 사용: 프로토콜 읽기, 피험자 목록·분할, 설정 지문 생성 기능을 모읍니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Serializable experiment protocol and subject-exclusive split manifests."""
 import hashlib
 import json
