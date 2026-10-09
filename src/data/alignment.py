@@ -1,3 +1,6 @@
+# 파일 역할: PURE 영상과 센서 시각 정렬
+# 연결과 사용: 카메라 타임스탬프에 PPG 파형을 보간하며 관측 구간 밖 라벨을 외삽하지 않습니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Align PURE PPG measurements to camera timestamps without assuming a 2:1 rate."""
 from pathlib import Path
 
