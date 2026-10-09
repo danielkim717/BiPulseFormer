@@ -1,3 +1,6 @@
+# 파일 역할: 과거 v1 학습과 테스트 실행
+# 연결과 사용: configs/protocol_v1.json과 데이터 경로를 받아 src/experiment.py를 호출합니다. 현재 결과표의 고정 실험과 구분합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Single entry point for protocol-v1 training and held-out testing."""
 import argparse
 import sys
