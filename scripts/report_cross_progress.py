@@ -1,3 +1,6 @@
+# 파일 역할: 과거 실험 진행 보고 보조 도구
+# 연결과 사용: 기존 작업으로 상태 보고 요청을 보내는 로컬 운영용 파일입니다. 모델 재현의 필수 단계가 아닙니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Send a progress-report request to the existing Codex thread every 30 minutes.
 
 The experiment and its frozen source are read-only to this helper. A stop file
