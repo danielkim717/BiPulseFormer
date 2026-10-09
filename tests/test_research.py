@@ -1,3 +1,6 @@
+# 파일 역할: 개발 코드의 분할과 모델 동작 검사
+# 연결과 사용: 연구 코드의 계약과 처리 동작을 확인하는 테스트입니다. 실제 영상 정확도 평가와 다릅니다.
+# 파일 안내: docs/FILE_GUIDE.md
 import copy
 import json
 import tempfile
