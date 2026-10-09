@@ -1,3 +1,6 @@
+# 파일 역할: 영상 클립과 정답 맥파 로딩
+# 연결과 사용: 영상·센서 자료를 읽어 학습과 평가에 사용할 입력 클립과 라벨을 만듭니다.
+# 파일 안내: docs/FILE_GUIDE.md
 import os
 import json
 import glob
