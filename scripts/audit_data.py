@@ -1,3 +1,6 @@
+# 파일 역할: 학습 전 영상 목록과 PPG 라벨 점검
+# 연결과 사용: PURE·UBFC-rPPG 경로를 읽어 시간 정렬과 학습 구간의 라벨 상태를 집계합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Audit recording inventory and all train-sized PPG clips before long runs."""
 import argparse
 import json
