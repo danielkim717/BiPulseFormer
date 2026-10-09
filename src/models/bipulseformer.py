@@ -1,4 +1,7 @@
-﻿"""
+# 파일 역할: BiPulseFormer 주파수 기반 영역 선택 모델
+# 연결과 사용: 시공간 특징과 주파수 요약으로 영역을 선택하고 맥파를 출력합니다. 현재 표의 정확한 코드는 experiments의 고정본을 봅니다.
+# 파일 안내: docs/FILE_GUIDE.md
+"""
 BiPulseFormer — frequency-guided region routing for video-based pulse estimation.
 
 The reported configuration summarizes temporal FFT magnitudes of learned Q/K
