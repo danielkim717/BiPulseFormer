@@ -1,3 +1,6 @@
+# 파일 역할: 짧은 클립 단위 심박 오차 평가
+# 연결과 사용: 클립별 주파수 기반 심박 추정과 MAE 등을 계산합니다. 녹화 단위 점수와 직접 섞지 않습니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Auxiliary fixed-length per-clip HR metrics.
 
 Each 5.3s clip (160 frames) → 1 HR estimate via FFT/periodogram peak.
