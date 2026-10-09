@@ -1,3 +1,6 @@
+# 파일 역할: 학습 모델이 선택한 얼굴 영역 확인
+# 연결과 사용: 저장 모델과 검증 영상에서 라우팅 선택을 시각화합니다. checkpoint의 모델 설정을 사용합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Inspect validation-face routing using checkpoint-embedded model settings."""
 import argparse
 import json
