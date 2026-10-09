@@ -1,3 +1,6 @@
+# 파일 역할: 저장된 심박 추정 결과 그래프 생성
+# 연결과 사용: summary.json의 녹화별 정답·예측 쌍으로 산점도와 Bland–Altman 그림을 만듭니다. 재학습하지 않습니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Plot saved recording HR pairs; no model inference or test-set reselection."""
 import argparse
 import json
