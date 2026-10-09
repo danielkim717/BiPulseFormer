@@ -1,3 +1,6 @@
+# 파일 역할: 녹화 단위 맥파와 심박 지표 평가
+# 연결과 사용: 예측 파형과 정답을 바탕으로 심박 지표를 계산합니다. 현재 고정 실험은 별도 평가 어댑터를 사용합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """
 rPPG-Toolbox-style recording-level HR and waveform evaluation.
 
