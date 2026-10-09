@@ -1,3 +1,6 @@
+# 파일 역할: 과거 v1 교차 데이터 실험 일괄 실행
+# 연결과 사용: 서로 다른 데이터셋·모델·시드의 실험을 순차 실행하고 비교 표를 만듭니다. 실제 학습을 시작하는 파일입니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Frozen-code, sequential cross benchmark and automatically updated comparison."""
 import argparse
 import json
