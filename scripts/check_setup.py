@@ -1,3 +1,6 @@
+# 파일 역할: 모델 순전파 역전파와 학습 환경 확인
+# 연결과 사용: 합성 입력으로 optimizer step까지 점검합니다. 데이터셋 학습 결과를 만드는 파일은 아닙니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Check full-size forward/backward and optimizer step without dataset training."""
 import argparse
 import gc
