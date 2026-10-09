@@ -1,6 +1,6 @@
 # Documentation map
 
-[Back to BiPulseFormer](../README.md)
+[Back to BiPulseFormer](../README.md) · [한국어 파일 안내](FILE_GUIDE.md) · [전체 파일 목록](FILE_INDEX.md)
 
 ## Current method and results
 
