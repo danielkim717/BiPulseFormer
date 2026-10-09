@@ -1,10 +1,38 @@
 # BiPulseFormer
 
-**Frequency-guided region routing and sparse attention for remote photoplethysmography (rPPG).**
+**얼굴 영상의 주파수 정보를 이용해 맥박 추정에 유용한 영역을 선택하는 비접촉 맥파 추정 모델입니다.**
 
-BiPulseFormer estimates a pulse waveform from facial video. It uses frequency-domain information in learned features to guide routing toward physiologically relevant spatio-temporal regions, then applies token attention to the selected regions. The design builds on PhysFormer's temporal-difference features and BiFormer's region-routing principle.
+일반 카메라로 촬영한 얼굴 영상에서 시간에 따라 변하는 맥파를 추정하고, 정답 센서 파형과 심박수 오차를 비교하는 연구 프로젝트입니다. PhysFormer의 시간 변화 특징과 BiFormer의 영역 선택 아이디어를 바탕으로, 주파수 정보를 영역 선택 기준에 반영했습니다.
 
-주파수 정보를 이용해 맥박 추정에 유용한 시공간 영역을 선택하고, 선택된 영역에 sparse attention을 적용하는 영상 기반 맥파 추정 모델입니다. [한국어 결과 보고서](docs/results_20260917.md)
+[프로젝트 설명](#프로젝트-한눈에-보기) · [파일별 역할](docs/FILE_GUIDE.md) · [전체 파일 목록](docs/FILE_INDEX.md) · [한국어 결과 보고서](docs/results_20260917.md) · [실행 안내](docs/getting_started.md)
+
+## 프로젝트 한눈에 보기
+
+| 항목 | 내용 |
+|---|---|
+| 해결하려는 문제 | 얼굴 영상에서 맥박 관련 변화와 움직임·배경의 영향을 구분해 맥파 추정 |
+| 모델 입력 | 시간 순서가 있는 얼굴 영상 클립 |
+| 모델 출력 | 시간에 따른 맥파. 심박수는 별도 주파수 기반 평가로 계산 |
+| 핵심 설계 | 특징의 시간축 FFT 요약 → 영역 점수 계산 → top-k 영역 선택 → 선택 영역의 토큰 attention |
+| 공개한 현재 결과 | 2026-09-17 기준 PURE 학습 모델의 교차 데이터셋 평가 기록 |
+| 먼저 볼 코드 | `experiments/final_protocol_20260914/`의 보존본 |
+| 개발·과거 코드 | 루트 `src/`, `scripts/`, `configs/protocol_v1.json` |
+
+## 각 폴더는 무엇인가요?
+
+| 위치 | 하는 일 |
+|---|---|
+| [고정 실험 묶음](experiments/final_protocol_20260914/README.md) | 현재 결과표를 만든 모델·학습·평가 구현, 설정, 결과, 검증 코드 |
+| [src](src/README.md) | 개발용 모델, 영상·정답 로더, 손실, 평가, 피험자 분할 |
+| [scripts](scripts/README.md) | 과거 v1 학습 실행, 데이터 점검, 영역 시각화, 결과 집계 |
+| [docs](docs/README.md) | 연구 방법·조건·성능·재현 범위·파일별 설명 |
+| [results](results/README.md) | 이전 실험의 로그·모델·결과 표·그림. 현재 결과와 구분 |
+
+## 읽을 때 구분할 점
+
+현재 설정은 영상 특징을 공간 방향의 16개 영역으로 나누고, 각 영역에서 다른 영역 4개를 선택합니다. 주파수 정보는 시간축에서 계산하지만 짧은 시간 구간을 독립적으로 나누어 선택하는 설정은 아닙니다. 추론에서는 선택한 영역의 토큰만 모으지만 학습에서는 dense STE를 사용하므로, 학습 비용이나 실제 장치의 전력 절감이 확인되었다는 뜻은 아닙니다.
+
+아래 방법과 결과표는 기존 공개 근거를 유지했습니다. `direct/restored`는 주파수 학습 신호의 처리 차이이며 서로 다른 라우팅 구조가 아닙니다. PHYS를 학습 원본으로 사용하는 실험의 완료 여부도 결과 스냅샷의 날짜를 기준으로 읽어야 합니다.
 
 ## How it works
 
