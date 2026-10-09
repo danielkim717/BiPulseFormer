@@ -1,3 +1,6 @@
+# 파일 역할: 동일 조건 반복 실험의 결과 집계
+# 연결과 사용: 여러 summary.json의 설정·분할·코드·표본 일치를 확인한 뒤 평균과 변동을 계산합니다.
+# 파일 안내: docs/FILE_GUIDE.md
 """Aggregate comparable completed runs; never choose the best test seed."""
 import argparse
 import json
