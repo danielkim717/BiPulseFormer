@@ -1,3 +1,0 @@
-# Preserve the bytes of the frozen implementation and its verified protocol.
-source/** -text
-protocol.json -text

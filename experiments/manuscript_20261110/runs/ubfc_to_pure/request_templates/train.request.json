@@ -1,0 +1,13 @@
+{
+  "snapshot": "${RUN}/source_snapshot",
+  "output": "${RUN}/train",
+  "source": "UBFC-rPPG",
+  "target": "PURE",
+  "variant": "direct",
+  "mode": "train",
+  "roots_file": "${RUN}/roots.json",
+  "protocol": "${RUN}/protocol.json",
+  "protocol_sha256": "${PROTOCOL_SHA256}",
+  "cache": "${RUN}/cache",
+  "prepared_cache": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\input_cache"
+}

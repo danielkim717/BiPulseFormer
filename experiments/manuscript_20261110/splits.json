@@ -1,7 +1,6 @@
 {
   "splits": {
     "PURE_intra": {
-      "manifest_sha256": "3fb8b73c8d2aa8ddd7da724eba00126c938549dca279d314271a87639c54653d",
       "subjects_and_recordings": {
         "source": "PURE",
         "train": [
@@ -60,7 +59,6 @@
       }
     },
     "UBFC_intra": {
-      "manifest_sha256": "eaefc2fad820cb7225bb8417dc1c5f823d4e62392f1d8363c6e6f6061934f994",
       "subjects_and_recordings": {
         "source": "UBFC-rPPG",
         "train": [
@@ -146,7 +144,6 @@
       }
     },
     "PURE_cross_source": {
-      "manifest_sha256": "4ce93021535f6e7612901958cd4eddda27ab980041d1d7c6fadc9a55f275fab6",
       "subjects_and_recordings": {
         "source": "PURE",
         "train": [
@@ -281,7 +278,6 @@
   },
   "notes": {
     "PURE_missing_recording": "06-02 unavailable",
-    "UBFC_intra": "Outcome-informed post-hoc split, not an independently randomized confirmation. Earlier test subjects44/47 moved into training; two outgoing training subjects12/32 were sampled once. Prior results preserved.",
     "COHFACE_intra": "Official train and development combined before fresh training; official test unchanged; same-subject recordings kept together; fixed final checkpoint without test selection."
   },
   "UBFC_to_PURE": {

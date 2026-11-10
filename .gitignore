@@ -1,100 +1,30 @@
-# Virtual Environment
+# Local environment
 .venv/
-env/
 venv/
+env/
 __pycache__/
-*.pyc
-
-# Live progress + status (regenerable runtime files)
-results/current_status*.json
-results/live_progress*.md
-results/periodic_log.txt
-results/tune_log.txt
-results/startup_error.txt
-
-# Run logs
-results/*/run.log
-results/*/run.log.err
-
-# Exclude obsolete result directories (superseded by phase12/steplr15/diffrouting)
-results/cross_biformer/
-results/cross_biphysformer/
-results/cross_bipulseformer/
-results/cross_physformer/
-results/cross_82_pure2ubfc/
-results/cross_82_ubfc2pure/
-results/cross_82_pure2ubfc_fulltgt/
-results/cross_82_ubfc2pure_fulltgt/
-results/cross_82_pure_to_ubfc/
-results/cross_82_ubfc_to_pure/
-results/cross_82_pure_to_ubfc_const30/
-results/intra_bipulseformer/
-results/intra_pure_bipulseformer_712/
-results/intra_pure_bipulseformer_712_random/
-results/intra_pure_bipulseformer_subj_exclusive/
-results/intra_ubfc_bipulseformer_712/
-results/intra_ubfc_physformer/
-results/pretrain_*/
-results/preproc_check/
-
-# Per-epoch waveforms (large, regenerable from checkpoints)
-results/*/waveforms/
-
-# Auxiliary analysis files (one-off diagnostics)
-results/per_clip_evaluation.json
-results/per_clip_eval_log.txt
-results/per_clip_test_best.txt
-results/pure_oc20_analysis.txt
-results/valid_vs_test_oc20.txt
-
-# Historical auxiliary files
-scripts/pretrain_physformer_pe.py
-results/plots/bipulseformer/per_subject_intra_PURE_session_split_epoch7.csv
-
-# Big files
+*.py[cod]
+# Generated data and experimental artifacts
+/work/
+/data/
+/datasets/
+/cache/
+/results/
+/checkpoints/
+/logs/
+/paper/
 *.pt
+*.pth
+*.ckpt
+*.npy
 *.npz
 *.avi
+*.mp4
+*.hdf5
+*.h5
 *.log
-D:/
-logs/
-
-# Current experiments: generated snapshots, local paths, checkpoints and reports
-results/cross_v1*/
-results/v1*/
-
-# Paper sources (too large / external)
-paper.pdf
-paper_abs.html
-paper_v4.html
-paper_text.txt
-paper_chunk_*.txt
-
-# Temporary files
-tmp_*.py
-tmp_*.ipynb
-
-# Scheduled task lock
-.claude/scheduled_tasks.lock
-
-# PNG default-exclude (we'll force-add specific plots)
-*.png
-!results/plots/bipulseformer/scatter_*.png
-!results/plots/bipulseformer/bland_altman_*.png
-!results/routing_face_viz/**/*.png
-
-# Checkpoint default-exclude — only keep best epoch per training
-results/*/checkpoints/*.pt
-!results/intra_ubfc_bipulseformer/checkpoints/UBFC-rPPG_to_UBFC-rPPG_epoch8.pt
-!results/intra_pure_bipulseformer/checkpoints/PURE_to_PURE_epoch7.pt
-!results/intra_pure_bipulseformer_80_20/checkpoints/PURE_to_PURE_epoch9.pt
-!results/intra_pure_bipulseformer_712_oc20/checkpoints/PURE_epoch11.pt
-!results/intra_ubfc_bipulseformer_712_oc20/checkpoints/UBFC-rPPG_epoch10.pt
-!results/cross_82_pure_to_ubfc_phase12/checkpoints/PURE_to_UBFC-rPPG_epoch4.pt
-!results/cross_82_ubfc_to_pure_phase12/checkpoints/UBFC-rPPG_to_PURE_epoch7.pt
-!results/cross_82_pure_to_ubfc_steplr15/checkpoints/PURE_to_UBFC-rPPG_epoch3.pt
-!results/cross_82_ubfc_to_pure_steplr15/checkpoints/UBFC-rPPG_to_PURE_epoch11.pt
-!results/intra_pure_biphysformer_712/checkpoints/PURE_epoch2.pt
-!results/intra_ubfc_biphysformer_712/checkpoints/UBFC-rPPG_epoch2.pt
-!results/cross_82_pure_to_ubfc_fftfix/checkpoints/PURE_to_UBFC-rPPG_epoch3.pt
-!results/cross_82_ubfc_to_pure_fftfix/checkpoints/UBFC-rPPG_to_PURE_epoch6.pt
+# Local editor and automation state
+.claude/
+.codex/
+.vscode/
+.env

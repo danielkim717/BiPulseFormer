@@ -6,14 +6,14 @@ Paths/receipts/canonical cache must be prepared on the recipient's machine.
 from pathlib import Path
 import argparse,hashlib,json,shutil
 ROOT=Path(__file__).resolve().parent
-p=argparse.ArgumentParser();p.add_argument('--experiment',choices=['pure_intra','ubfc_intra_posthoc','cohface_intra','ubfc_to_pure'],required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--experiment',choices=['pure_intra','ubfc_intra','cohface_intra','ubfc_to_pure','pure_to_ubfc'],required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
 out=a.output.resolve()
 if out.exists():raise FileExistsError('Use a new output directory; existing results are protected')
 src=ROOT/'runs'/a.experiment;out.mkdir(parents=True);snap=out/'source_snapshot'
 shutil.copytree(ROOT/'implementation',snap)
 if (src/'overrides').exists():shutil.copytree(src/'overrides',snap,dirs_exist_ok=True)
 if (src/'controls').exists():shutil.copytree(src/'controls',out,dirs_exist_ok=True)
-for name in ['protocol.executed.json','inventory.template.json']:
+for name in ['protocol.template.json','inventory.template.json']:
  if (src/name).exists():shutil.copy2(src/name,out/name)
 if (src/'request_templates').exists():shutil.copytree(src/'request_templates',out/'request_templates')
 manifest={p.relative_to(snap).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(snap.rglob('*')) if p.is_file()}

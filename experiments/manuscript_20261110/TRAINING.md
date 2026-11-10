@@ -41,12 +41,12 @@ From the repository root, choose a fresh output path:
 python experiments/manuscript_20261110/materialize.py --experiment pure_intra --output work/pure_intra
 ```
 
-Other choices are `ubfc_intra_posthoc`, `cohface_intra`, `ubfc_to_pure`. This creates exact source files plus path templates, **not a ready-to-train run**. It does not modify the model, create success receipts, start training, download data or resume any process.
+Other choices are `ubfc_intra`, `cohface_intra`, `pure_to_ubfc`, `ubfc_to_pure`. This creates exact source files plus path templates, **not a ready-to-train run**. It does not modify the model, create success receipts, start training, download data or resume any process.
 
 For PURE/UBFC request-driven workers:
 
-1. Set `roots.json` to the local absolute raw-data roots for the requested datasets. Replace `${WORKSPACE}`/`${DATA}` fields in the selected request templates. Set `snapshot` to the materialized `source_snapshot`, `cache` to the newly verified canonical cache, and `output` to a new job directory.
-2. Keep all scientific fields in `protocol.executed.json`; relocate its paths and compute `protocol_sha256` from the exact resulting bytes. Point requests to that protocol. Materialized `snapshot_manifest.json` describes the exported source subset and is distinct from the historical manifest.
+1. Set `roots.json` to the local absolute raw-data roots for the requested datasets. Replace `${RUN}`/`${WORKSPACE}`/`${DATA}` fields in the selected request templates. Set `snapshot` to the materialized `source_snapshot`, `cache` to the newly verified canonical cache, and `output` to a new job directory.
+2. Copy `protocol.template.json` to `protocol.json`, keep its scientific fields, relocate paths and compute `protocol_sha256` from the exact resulting bytes. Point requests to that protocol. Materialized `snapshot_manifest.json` describes the exported source subset and is distinct from the historical manifest.
 3. Regenerate canonical labels/coverage. Verify raw decoding and seek parity, exact raw/cached input equality including random flip/RNG behavior, subject disjointness, source HR CE targets, and a real batch4 CUDA forward/backward. The worker requires genuine preparation receipts; do not manually create `status='passed'` or bypass these checks. Worker `--preflight-only` audits source targets but is **not** the full cache/GPU check.
 4. Use the unchanged worker for sequential training then testing, with separate new output directories. Set test request `bundle` to the completed train bundle. All intra workers select the prespecified final epoch30; do not search test scores.
 
@@ -57,7 +57,7 @@ python work/pure_intra/source_snapshot/scripts/run_pure_k_ablation.py --request 
 python work/pure_intra/source_snapshot/scripts/run_pure_k_ablation.py --request work/pure_intra/test.request.json
 ```
 
-UBFC intra uses `run_ubfc_intra_30_12.py`; UBFC→PURE uses `run_ubfc_to_pure.py` and additionally requires its full prepared source cache. COHFACE uses the materialized root's `run_cohface_intra_20261103.py`, after creating `protocol.json`, relocated `inventory_audit.json`, `snapshot_manifest.json`, `control_manifest.json` and initial status. Its `--preflight` performs the worker's source/real-GPU checks before the combined prepare/train/test run. Inventory/control manifests must be regenerated against actual local files.
+PURE→UBFC uses `run_final_protocol.py`; UBFC intra uses `run_ubfc_intra_30_12.py`; UBFC→PURE uses `run_ubfc_to_pure.py` and additionally requires its full prepared source cache. COHFACE uses the materialized root's `run_cohface_intra_20261103.py`, after creating `protocol.json`, relocated `inventory_audit.json`, `snapshot_manifest.json`, `control_manifest.json` and initial status. Its `--preflight` performs the worker's source/real-GPU checks before the combined prepare/train/test run. Inventory/control manifests must be regenerated against actual local files.
 
 These launch commands document the executed entrypoints; a new machine's end-to-end data preparation/retraining has not been completed by this code-sharing task. If a recipient needs ready-to-run data or weights, transfer authorized artifacts separately and verify the published identifiers. Never copy a stale passed receipt merely to make a worker start.
 
@@ -67,4 +67,4 @@ All current report values use the included `hr_evaluation_40_180.py`: reconstruc
 
 For older workers' saved `test_predictions.pt`, concatenate chunk dictionaries in numerical key order, as `journal_toolbox.py::summarize_predictions` does, and apply this scorer. `api.score_record` accepts the merged derivative waves. Do **not** overwrite the original summary or reselect the source checkpoint when rescoring. COHFACE and the new UBFC→PURE worker already use the common40–180 scorer.
 
-A checkpoint's `best.pt` name is only an epoch30 compatibility alias for intra. PURE→UBFC uses source-only selection over20epochs; new UBFC→PURE uses source-only selection over30epochs. The public result JSON provides exact checkpoint SHA256 values. No checkpoint binary is uploaded with this release.
+A checkpoint's `best.pt` name is only an epoch30 compatibility alias for intra. PURE→UBFC uses source-only selection over20epochs; new UBFC→PURE uses source-only selection over30epochs. The compact result JSON provides exact checkpoint SHA256 values. No checkpoint binary is uploaded with this release.

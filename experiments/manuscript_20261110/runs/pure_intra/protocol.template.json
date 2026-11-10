@@ -1,0 +1,72 @@
+{
+  "version": "pure_intra-public-template-v1",
+  "locked": true,
+  "model": "BiPulseFormer",
+  "seed": 43,
+  "epochs": 30,
+  "batch_size": 4,
+  "optimizer": "Adam",
+  "lr": 0.0001,
+  "weight_decay": 5e-05,
+  "grad_clip": 1.0,
+  "scheduler": null,
+  "loss_variants": [
+    "direct"
+  ],
+  "loss": "negative Pearson + frequency CE + distribution KL",
+  "alpha": 1.0,
+  "beta": 1.0,
+  "loss_bins_bpm": [
+    40,
+    180
+  ],
+  "loss_bin_upper_exclusive": true,
+  "invalid_loss_targets": "candidate_ineligible_no_clamp_no_exclusion",
+  "augmentation": "horizontal flip p=.5 training only",
+  "input_normalization": "v1 per-clip diff/std, epsilon1e-7",
+  "input_crop": "v1 static HC1.5 first frame, square/center fallback; torchvision float bilinear resize128 antialias",
+  "label_training": "PURE timestamp interpolation; UBFC native frame-aligned BVP; clip diff/std",
+  "prediction_normalization": "per-clip centered sample std, clamp1e-8",
+  "input_frames": 161,
+  "output_frames": 160,
+  "training_stride": 160,
+  "inference_stride": 80,
+  "overlap": "arithmetic mean of normalized derivative predictions at each common sample",
+  "coverage": "unchanged existing journal complete160-frame chunks, from native frame0; no clip exclusion",
+  "tail": "repeat final raw frame only when common interval ends at exact decoded length",
+  "test_gt": "byte-identical verified journal cached labels; never averaged or timestamp-realigned",
+  "test_hr_bpm": [
+    36,
+    198
+  ],
+  "test_evaluator": "pinned b7500b8 FFT+cumsum+detrend100+Butterworth .6-3.3Hz",
+  "fs": {
+    "PURE": 30,
+    "UBFC-rPPG": 30,
+    "UBFC-PHYS": 35
+  },
+  "best": "Epoch30 fixed before training; no best search",
+  "variant_selection": "direct fixed before this run; no test selection",
+  "splits": {
+    "PURE": {
+      "train": [
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06"
+      ],
+      "valid": [],
+      "test": [
+        "07",
+        "08",
+        "09",
+        "10"
+      ]
+    }
+  },
+  "split_policy": "Sorted subjects01-06 training,07-10 test; all tasks stay with subject",
+  "selection_policy": "fixed_final_epoch",
+  "routing_topk": 4
+}

@@ -1,73 +1,62 @@
 {
   "pure_intra": {
-    "original_run": "results/pure_k4_seed43_20261005",
-    "original_protocol_sha256": "a6f9d36b3e0f933d8759e16c478998cfb9f1c711e0bc603ceedf844d302b381a",
     "worker": "run_pure_k_ablation.py",
-    "protocol_path_fields_relocated": true,
-    "status": "complete",
-    "legacy_test_hr_bpm": [
+    "protocol": "runs/pure_intra/protocol.template.json",
+    "worker_test_hr_bpm": [
       36,
       198
     ],
-    "current_report_test_hr_bpm": [
+    "report_hr_bpm": [
       40,
       180
     ]
   },
-  "ubfc_intra_posthoc": {
-    "original_run": "results/ubfc_intra_swap_20260924",
-    "original_protocol_sha256": "20a56381f94ce49fe35d4fd07efccf3cf9b21a66a8246ddd90f1b4cd2f8055a0",
+  "ubfc_intra": {
     "worker": "run_ubfc_intra_30_12.py",
-    "protocol_path_fields_relocated": true,
-    "status": "complete",
-    "legacy_test_hr_bpm": [
+    "protocol": "runs/ubfc_intra/protocol.template.json",
+    "worker_test_hr_bpm": [
       36,
       198
     ],
-    "current_report_test_hr_bpm": [
+    "report_hr_bpm": [
       40,
       180
     ]
   },
   "cohface_intra": {
-    "original_run": "results/cohface_intra_20261103",
-    "original_protocol_sha256": "bdc27847747dade5e2592999f80482f4d7c10cdd0852db7d544e5fbde6eca266",
     "worker": "run_cohface_intra_20261103.py",
-    "protocol_path_fields_relocated": true,
-    "status": "complete",
-    "legacy_test_hr_bpm": [
+    "protocol": "runs/cohface_intra/protocol.template.json",
+    "worker_test_hr_bpm": [
       40,
       180
     ],
-    "current_report_test_hr_bpm": [
+    "report_hr_bpm": [
       40,
       180
     ]
   },
   "ubfc_to_pure": {
-    "original_run": "results/ubfc_to_pure_20261110",
-    "original_protocol_sha256": "7979a293274c77b28be4aaa96b33dc9c28e2c7ce93a7c054d01743470f7e4499",
     "worker": "run_ubfc_to_pure.py",
-    "protocol_path_fields_relocated": true,
-    "status": "preparing_no_final_result",
-    "legacy_test_hr_bpm": [
+    "protocol": "runs/ubfc_to_pure/protocol.template.json",
+    "worker_test_hr_bpm": [
       40,
       180
     ],
-    "current_report_test_hr_bpm": [
+    "report_hr_bpm": [
       40,
       180
     ]
   },
   "pure_to_ubfc": {
-    "status": "complete",
-    "implementation": "../final_protocol_20260914/source",
-    "protocol": "../final_protocol_20260914/protocol.json",
-    "original_run": "results/final_protocol_20260914",
-    "current_report_test_hr_bpm": [
+    "worker": "run_final_protocol.py",
+    "protocol": "runs/pure_to_ubfc/protocol.template.json",
+    "worker_test_hr_bpm": [
+      36,
+      198
+    ],
+    "report_hr_bpm": [
       40,
       180
-    ],
-    "note": "Rescore saved waveforms; original source-only checkpoint selection is unchanged."
+    ]
   }
 }

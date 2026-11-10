@@ -1,6 +1,1 @@
-torch
-torchvision
-opencv-python
-numpy
-matplotlib
-scipy
+-r experiments/manuscript_20261110/requirements.txt

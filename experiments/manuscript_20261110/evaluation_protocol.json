@@ -12,7 +12,7 @@
   "normalization": {
     "input": "161 frames ->160 temporal differences, divide frame differences by adjacent-frame sum +1e-7, then per-clip std with1e-7",
     "prediction": "per-window centered sample std, clamp_min1e-8; arithmetic average at overlapping sample indices, stride80",
-    "reference": "unchanged canonical difference-normalized labels, source hashes retained; PHYS intra uses explicit first60s contract"
+    "reference": "Canonical difference-normalized labels with original dataset time alignment and complete-chunk coverage."
   },
   "architecture": {
     "feature_size": [
@@ -179,8 +179,6 @@
   },
   "implementation": {
     "frozen_model_sha256": "3c6f576c83fa7c57b2ed1bc6f47d30c875970daab2b3e841dbe942ba84a6b7e7",
-    "dense_hard_vs_gather_max_abs": 2.5331974029541016e-07,
-    "parity_conditions": "CPU float32, B=1, L=40, R=16, C=96, heads=4, K=4; fixed BN; dropout=0; synthetic input; no trained checkpoint modified",
     "fft_bins_bpm": {
       "30": [
         45.0,
@@ -197,28 +195,6 @@
         168.75,
         180.0
       ]
-    },
-    "duplicate_metrics_check": [
-      {
-        "variants": [
-          "PURE_intra_K2",
-          "PURE_intra_K6"
-        ],
-        "checkpoint_hashes_different": true,
-        "saved_prediction_max_abs_difference": 2.9454668164253235,
-        "per_recording_hr_rows_equal": true,
-        "full_precision_metrics_equal": true
-      },
-      {
-        "variants": [
-          "Temporal-spatial mean Top4",
-          "HR-band FFT Top1"
-        ],
-        "checkpoint_hashes_different": true,
-        "saved_prediction_max_abs_difference": 3.7368034943938255,
-        "interpretation": "Distinct predictions; same reported aggregate recording metrics, not evidence of identical models."
-      }
-    ],
-    "displacement_HR_errors_unchanged": true
+    }
   }
 }
