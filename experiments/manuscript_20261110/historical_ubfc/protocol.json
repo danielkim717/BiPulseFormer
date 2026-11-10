@@ -1,0 +1,142 @@
+{
+  "version": "ubfc-intra-posthoc-swap-fixed-final-20260924-v1",
+  "locked": true,
+  "model": "BiPulseFormer",
+  "seed": 42,
+  "epochs": 30,
+  "batch_size": 4,
+  "optimizer": "Adam",
+  "lr": 0.0001,
+  "weight_decay": 5e-05,
+  "grad_clip": 1.0,
+  "scheduler": null,
+  "loss_variants": [
+    "direct"
+  ],
+  "loss": "negative Pearson + frequency CE + distribution KL",
+  "alpha": 1.0,
+  "beta": 1.0,
+  "loss_bins_bpm": [
+    40,
+    180
+  ],
+  "loss_bin_upper_exclusive": true,
+  "invalid_loss_targets": "candidate_ineligible_no_clamp_no_exclusion",
+  "augmentation": "horizontal flip p=.5 training only",
+  "input_normalization": "v1 per-clip diff/std, epsilon1e-7",
+  "input_crop": "v1 static HC1.5 first frame, square/center fallback; torchvision float bilinear resize128 antialias",
+  "label_training": "PURE timestamp interpolation; UBFC native frame-aligned BVP; clip diff/std",
+  "prediction_normalization": "per-clip centered sample std, clamp1e-8",
+  "input_frames": 161,
+  "output_frames": 160,
+  "training_stride": 160,
+  "inference_stride": 80,
+  "overlap": "arithmetic mean of normalized derivative predictions at each common sample",
+  "coverage": "unchanged existing journal complete160-frame chunks, from native frame0; no clip exclusion",
+  "tail": "repeat final raw frame only when common interval ends at exact decoded length",
+  "test_gt": "byte-identical verified journal cached labels; never averaged or timestamp-realigned",
+  "test_hr_bpm": [
+    36,
+    198
+  ],
+  "test_evaluator": "pinned b7500b8 FFT+cumsum+detrend100+Butterworth .6-3.3Hz",
+  "fs": {
+    "PURE": 30,
+    "UBFC-rPPG": 30,
+    "UBFC-PHYS": 35
+  },
+  "best": "Epoch30 fixed before training; no best search",
+  "variant_selection": "direct fixed before this run; no test selection",
+  "reporting": "Local results only; automatic reporting disabled; exploratory outcome-informed split, not a blind or confirmatory benchmark",
+  "paper_equivalence": false,
+  "routing_causality_claim": false,
+  "reuse": "Fresh random initialization required: predecessor trained on new test subjects12/32; no weight or optimizer reuse",
+  "experiment": "Exploratory post-hoc UBFC 30/12 subject swap, fresh fixed-final training",
+  "splits": {
+    "UBFC-rPPG": {
+      "train": [
+        "subject1",
+        "subject10",
+        "subject11",
+        "subject13",
+        "subject14",
+        "subject15",
+        "subject16",
+        "subject17",
+        "subject18",
+        "subject20",
+        "subject22",
+        "subject23",
+        "subject24",
+        "subject25",
+        "subject26",
+        "subject27",
+        "subject3",
+        "subject30",
+        "subject31",
+        "subject33",
+        "subject34",
+        "subject35",
+        "subject36",
+        "subject37",
+        "subject38",
+        "subject39",
+        "subject4",
+        "subject40",
+        "subject44",
+        "subject47"
+      ],
+      "valid": [],
+      "test": [
+        "subject12",
+        "subject32",
+        "subject41",
+        "subject42",
+        "subject43",
+        "subject45",
+        "subject46",
+        "subject48",
+        "subject49",
+        "subject5",
+        "subject8",
+        "subject9"
+      ]
+    }
+  },
+  "split_policy": "Move requested subject44/47 into train; exchange two old training IDs sampled without scores using Python random.Random(42)",
+  "selection_policy": "fixed_final_epoch",
+  "reference": "Predecessor UBFC 30/12 public-code split is retained as historical evidence; this modified split is not the literature split",
+  "matched_items": [
+    "30 training epochs",
+    "fixed final epoch without validation or test checkpoint selection"
+  ],
+  "unmatched_items": [
+    "BiPulseFormer architecture",
+    "seed42",
+    "batch4",
+    "Adam1e-4 weight_decay5e-5 constant schedule",
+    "direct loss",
+    "diff/std normalization and flip augmentation",
+    "stride80 evaluator and journal GT",
+    "outcome-informed post-hoc subject split"
+  ],
+  "physformer_baseline_provenance": "RhythmMamba Table1 cites PhysFormer UBFC .50/.71/.99; baseline original exact execution not verified",
+  "reference_paper": "https://arxiv.org/html/2404.06483v2#S4.SS3",
+  "input_cache_max_bytes": 4294967296,
+  "subject37_coverage": "Native decoded 1170/2032 metadata frames; 7 training clips using 1121 raw frames, no waveform stretching",
+  "split_selection_seed": 42,
+  "split_selected_after_test": true,
+  "split_selection_reason": "User requested moving subject44/47 after observing their large test errors",
+  "moved_to_train": [
+    "subject44",
+    "subject47"
+  ],
+  "moved_to_test": [
+    "subject12",
+    "subject32"
+  ],
+  "reference_split_matched": false,
+  "comparison_interpretation": "Full-test metric changes combine changed test membership and changed training; do not attribute them to routing or claim matched PhysFormer superiority",
+  "predecessor": "${WORKSPACE}\\results\\ubfc_intra_30_12_20260923",
+  "predecessor_protocol_sha256": "e2461bd5f468a8286f1f56739ffed5e8277bd10f5dd8e6eae5df9b1199ca9837"
+}

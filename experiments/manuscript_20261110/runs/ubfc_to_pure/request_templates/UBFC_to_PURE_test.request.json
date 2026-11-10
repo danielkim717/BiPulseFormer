@@ -1,0 +1,14 @@
+{
+  "snapshot": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\source_snapshot",
+  "output": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\UBFC_to_PURE_test",
+  "source": "UBFC-rPPG",
+  "target": "PURE",
+  "variant": "direct",
+  "mode": "test",
+  "roots_file": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\roots.json",
+  "protocol": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\protocol.json",
+  "protocol_sha256": "7979a293274c77b28be4aaa96b33dc9c28e2c7ce93a7c054d01743470f7e4499",
+  "cache": "${WORKSPACE}\\results\\journal_toolbox_20260911\\cache",
+  "prepared_cache": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\input_cache",
+  "bundle": "${WORKSPACE}\\results\\ubfc_to_pure_20261110\\UBFC_source_train"
+}

@@ -1,0 +1,3 @@
+
+# Preserve exact frozen source bytes and release integrity hashes on all platforms.
+experiments/manuscript_20261110/** -text

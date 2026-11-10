@@ -1,3 +1,5 @@
+> **2026-11-10 현재 코드:** [공유 안내](SHARING_GUIDE_KO.md)와 [현재 논문 코드 묶음](../experiments/manuscript_20261110/README.md)을 먼저 확인하세요. 아래 내용은 기존 문서 및 과거 실행에 대한 안내입니다.
+
 # Getting started
 
 [Overview](../README.md) · [Method](method.md) · [Result report](results_20260917.md)

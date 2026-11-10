@@ -1,0 +1,13 @@
+{
+  "snapshot": "${WORKSPACE}\\results\\pure_k4_seed43_20261005\\source_snapshot",
+  "roots_file": "${WORKSPACE}\\results\\journal_toolbox_20260911\\roots.json",
+  "cache": "${WORKSPACE}\\results\\journal_toolbox_20260911\\cache",
+  "protocol": "${WORKSPACE}\\results\\pure_k4_seed43_20261005\\protocol_k4.json",
+  "protocol_sha256": "a6f9d36b3e0f933d8759e16c478998cfb9f1c711e0bc603ceedf844d302b381a",
+  "mode": "train",
+  "source": "PURE",
+  "target": "PURE",
+  "variant": "direct",
+  "output": "${WORKSPACE}\\results\\pure_k4_seed43_20261005\\PURE_intra_k4_direct_s43_train",
+  "shared_input_cache": "${WORKSPACE}\\results\\pure_k_ablation_20260929\\input_cache"
+}

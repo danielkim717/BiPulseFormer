@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-10",
+  "source_copy_hashes": "passed, 285 files",
+  "pinned_vendor_hashes": "passed, 229 entries",
+  "python_syntax": "passed, 146 files",
+  "recording_aggregate_recalculation": "passed, all four current results",
+  "subject_disjointness": "passed within every listed experiment",
+  "CPU_forward": "passed; B=1, K4 x12, 7380865 parameters, finite [1,160]",
+  "normalization_parity": "bitwise equal to frozen PURE worker on two synthetic inputs",
+  "direct_loss_CPU_backward": "finite loss and input gradient",
+  "HR_scorer_synthetic_72_BPM": "prediction/reference both 72.0703125 BPM; absolute error zero",
+  "materialize_PURE": "passed; new isolated directory, no training launched",
+  "full_retraining_performed_for_release": false,
+  "fresh_machine_dependency_install_tested": false,
+  "raw_data_or_weights_published": false
+}
